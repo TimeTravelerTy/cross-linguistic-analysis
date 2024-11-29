@@ -9,7 +9,7 @@ import {
   Legend,
   ResponsiveContainer 
 } from 'recharts';
-import { ComparisonResult, Languages } from '../types';
+import { ComparisonResult, Languages, FamilyColexifications } from '../types';
 import { FamilyGraph } from './FamilyGraph';
 
 interface FamilyComparisonViewProps {
@@ -21,22 +21,21 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
   results, 
   languages 
 }) => {
-  console.log('Results:', results);
-  console.log('Languages:', languages);
-
   const familyResults = useMemo(() => {
-    const grouped: Record<string, any> = {};
+    const grouped: Record<string, {
+      embeddings: Array<{ language: string; similarity: number; variations: any[] }>;
+      family_colexifications: FamilyColexifications;
+      languages: string[];
+    }> = {};
     
     Object.entries(results).forEach(([langCode, result]) => {
       const family = languages[langCode]?.family;
-      console.log('Processing:', langCode, family);
       if (!family) return;
       
       if (!grouped[family]) {
         grouped[family] = {
           embeddings: [],
-          colexifications: result.colexification_data || {},
-          patterns: result.family_patterns?.[family] || null,
+          family_colexifications: result.family_colexifications[family],
           languages: []
         };
       }
@@ -50,25 +49,22 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
       grouped[family].languages.push(langCode);
     });
     
-    console.log('Grouped results:', grouped);
     return grouped;
   }, [results, languages]);
 
+
   const chartData = Object.entries(familyResults).map(([family, data]) => ({
     name: family,
-    similarity: data.embeddings.reduce((sum: number, curr: any) => sum + curr.similarity, 0) / data.embeddings.length
+    similarity: data.embeddings.reduce((sum, curr) => sum + curr.similarity, 0) / data.embeddings.length
   }));
 
-  console.log('Chart data:', chartData);
-
-  // Get original concepts from colexification data keys
+  // Get original concepts from main_translations of first result
   const firstResult = Object.values(results)[0];
-  const concepts = Object.keys(firstResult.colexification_data);
-  const [concept1, concept2] = concepts; 
+  const [concept1, concept2] = firstResult.main_translations;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Embedding Similarities Chart */}
+      {/* Embedding Similarities Chart - remains the same */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Semantic Similarity by Family
@@ -123,42 +119,6 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
         </div>
       </div>
 
-      {/* Colexification Patterns */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Historical Colexification Patterns
-        </h3>
-        <div className="space-y-4 max-h-[400px] overflow-y-auto">
-          {Object.entries(familyResults).map(([family, data]) => (
-            <div 
-              key={family}
-              className="p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-            >
-              <h4 className="font-medium text-lg mb-2 text-gray-900">{family}</h4>
-              {data.patterns ? (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Colexification Rate
-                    </span>
-                    <span className="font-medium text-blue-600">
-                      {(data.patterns.proportion * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {data.patterns.languages_with_colexification.length} out of {data.patterns.total_languages_in_family} languages
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 italic">
-                  No historical colexification data available
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Family Pattern Graphs Section */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -166,12 +126,12 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
         </h3>
         <div className="space-y-6">
           {Object.entries(familyResults).map(([family, data]) => (
-            data.patterns && (
+            data.family_colexifications && (
               <FamilyGraph
                 key={family}
                 concept1={concept1}
                 concept2={concept2}
-                familyPattern={data.patterns}
+                familyData={data.family_colexifications}
                 familyName={family}
                 className="mt-4"
               />
@@ -183,15 +143,16 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
       {/* Similarity Correlation Analysis */}
       <div className="bg-white rounded-xl shadow-sm p-6 lg:col-span-2">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Computational vs Historical Similarity
+          Computational vs Colexical Similarity
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Object.entries(familyResults).map(([family, data]) => {
             const avgEmbeddingSim = data.embeddings.reduce(
-              (sum: number, curr: any) => sum + curr.similarity, 0
+              (sum, curr) => sum + curr.similarity, 0
             ) / data.embeddings.length;
             
-            const colexRate = data.patterns?.proportion || 0;
+            const colexRate = data.family_colexifications?.direct_colexification.frequency / 
+              (data.family_colexifications?.total_languages || 1) || 0;
             
             return (
               <div 

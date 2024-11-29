@@ -10,7 +10,7 @@ from app.models.schemas import (
     ComparisonResult,
     Translation
 )
-from app.services.clics import ClicsService, ColexificationData
+from app.services.clics import ClicsService
 from app.models.schemas import ComparisonResult
 from app.constants.clics_mappings import get_clics_codes
 import numpy as np
@@ -138,67 +138,36 @@ async def compare_concepts(request: ComparisonRequest):
             if family:
                 families.add(family)
 
-        print(f"Requested families: {families}")  
+        print(f"Requested families: {families}") 
+
+        # Get detailed family colexification patterns
+        family_colexifications = clics_service.get_family_colexifications(
+            request.concept1,
+            request.concept2,
+            families=list(families)
+        ) 
         
-        # Get CLICS data with error handling
-        try:
-            print(f"\nGetting colexifications for {request.concept1}")
-            colex1 = clics_service.get_colexifications(request.concept1)
-            print(f"Colexifications for {request.concept1}:", colex1.detailed_colexifications)  # Debug print
-            
-            print(f"\nGetting colexifications for {request.concept2}")
-            colex2 = clics_service.get_colexifications(request.concept2)
-            print(f"Colexifications for {request.concept2}:", colex2.detailed_colexifications)  # Debug print
-            family_patterns = clics_service.get_family_patterns(
-                request.concept1,
-                request.concept2,
-                families=list(families)
-            )
-            print(f"Family patterns result: {family_patterns}")
-        except Exception as e:
-            print(f"Error getting CLICS data: {str(e)}")
-            # Initialize with empty data rather than failing
-            colex1 = ColexificationData(
-                concept=request.concept1,
-                colexified_concepts=[],
-                family_frequencies={},
-                languages=[],
-                semantic_field=None,
-                category=None,
-                detailed_colexifications=[],
-                total_languages=0
-            )
-            colex2 = ColexificationData(
-                concept=request.concept2,
-                colexified_concepts=[],
-                family_frequencies={},
-                languages=[],
-                semantic_field=None,
-                category=None,
-                detailed_colexifications=[],
-                total_languages=0
-            )
-            family_patterns = {}
         
         for lang in request.languages:
             lang_name = SUPPORTED_LANGUAGES[lang]['name']
             print(f"Processing language: {lang_name}")
+            family = get_language_family(lang)
             try:
-                # Get all possible CLICS codes for this language
-                clics_codes = get_clics_codes(lang)
+                print("Getting concept1 colexifications...")
+                # Get language-specific colexifications
+                concept1_colexs = clics_service.get_language_colexifications(
+                    request.concept1, 
+                    lang, 
+                    family
+                )
                 
-                # Get language-specific colexification data
-                language_colexifications = {
-                    request.concept1: [
-                        link for link in colex1.detailed_colexifications
-                        if any(code in link.languages for code in clics_codes)
-                    ],
-                    request.concept2: [
-                        link for link in colex2.detailed_colexifications
-                        if any(code in link.languages for code in clics_codes)
-                    ]
-                }
-                print(f"Language colexifications for {lang}:", language_colexifications) 
+                print("\nGetting concept2 colexifications...")
+                concept2_colexs = clics_service.get_language_colexifications(
+                    request.concept2,
+                    lang,
+                    family
+                ) 
+
                 
                 # Get translations
                 trans1 = translation_service.get_translation(
@@ -266,23 +235,22 @@ async def compare_concepts(request: ComparisonRequest):
                 variation_similarities.sort(key=lambda x: x["similarity"], reverse=True)
                 
                 
-                # Get family-specific pattern if available
+                # Get family for this language
                 family = get_language_family(lang)
-                current_family_patterns = {}
-                if family and family in family_patterns:
-                    # Create a dictionary with family as key
-                    current_family_patterns = {family: family_patterns[family]}
-
+                
                 results[lang] = ComparisonResult(
                     main_similarity=float(main_similarity),
                     main_translations=(trans1.main_translation, trans2.main_translation),
-                    colexification_data=language_colexifications,
-                    family_patterns=current_family_patterns,  # Now it's a proper dictionary
                     variation_similarities=variation_similarities,
                     usage_notes={
                         "concept1": trans1.usage_notes,
                         "concept2": trans2.usage_notes
-                    }
+                    },
+                    language_colexifications={
+                        request.concept1: concept1_colexs,
+                        request.concept2: concept2_colexs
+                    },
+                    family_colexifications=family_colexifications
                 )
                 
             except Exception as e:

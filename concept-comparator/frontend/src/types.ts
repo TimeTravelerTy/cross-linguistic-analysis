@@ -26,21 +26,21 @@ export interface ComparisonData {
   languages: string[];
 }
 
-export interface ColexificationLink {
-  concept: string;
+export interface FamilyColexificationData {
   frequency: number;
   languages: string[];
 }
 
-export interface FamilyPattern {
-  proportion: number;
-  languages_with_colexification: string[];
-  total_languages_in_family: number;
-  indirect_languages?: string[];  // Optional indirect connections
-  intermediate_concepts?: Array<{  // Optional intermediate nodes
-    concept: string;
-    frequency: number;
-  }>;
+export interface FamilyColexifications {
+  concept1_colexifications: Record<string, FamilyColexificationData>;
+  concept2_colexifications: Record<string, FamilyColexificationData>;
+  direct_colexification: FamilyColexificationData;
+  total_languages: number;
+}
+
+export interface LanguageColexification {
+  concept: string;
+  present: boolean;
 }
 
 export interface ComparisonResult {
@@ -55,8 +55,8 @@ export interface ComparisonResult {
     concept1: string;
     concept2: string;
   };
-  colexification_data: Record<string, ColexificationLink[]>;
-  family_patterns: Record<string, FamilyPattern> | null; 
+  language_colexifications: Record<string, LanguageColexification[]>;
+  family_colexifications: Record<string, FamilyColexifications>;
 }
 
 export interface ApiResponse<T> {

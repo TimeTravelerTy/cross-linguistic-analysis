@@ -25,22 +25,16 @@ class ComparisonRequest(BaseModel):
     sense_id2: str
     languages: List[str]
 
-class ColexificationLink(BaseModel):
-    """Represents a colexification connection"""
-    concept: str
-    frequency: int  # How many languages in CLICS show this colexification
-    languages: List[str]  # Which languages show this pattern
-
-class ColexificationData(BaseModel):
-    """Data about colexification patterns for a concept"""
-    concept: str
-    colexified_concepts: List[str]
-    family_frequencies: Dict[str, float]  # family -> frequency
-    languages: List[str]
-    semantic_field: Optional[str] = None
-    category: Optional[str] = None
-    detailed_colexifications: List[ColexificationLink]
-    total_languages: int
+# class ColexificationData(BaseModel):
+#     """Data about colexification patterns for a concept"""
+#     concept: str
+#     colexified_concepts: List[str]
+#     family_frequencies: Dict[str, float]  # family -> frequency
+#     languages: List[str]
+#     semantic_field: Optional[str] = None
+#     category: Optional[str] = None
+#     detailed_colexifications: List[ColexificationLink]
+#     total_languages: int
 
 class FamilyPattern(BaseModel):
     """Detailed colexification data for a language family"""
@@ -50,11 +44,28 @@ class FamilyPattern(BaseModel):
     indirect_languages: Optional[List[str]] = None
     intermediate_concepts: Optional[List[Dict[str, Union[str, int]]]] = None
 
+class FamilyColexificationData(BaseModel):
+    """Detailed colexification data for concepts within a family"""
+    frequency: int
+    languages: List[str]
+
+class FamilyColexifications(BaseModel):
+    """Complete colexification patterns for a family"""
+    concept1_colexifications: Dict[str, FamilyColexificationData]
+    concept2_colexifications: Dict[str, FamilyColexificationData]
+    direct_colexification: FamilyColexificationData
+    total_languages: int
+
+class LanguageColexification(BaseModel):
+    """Represents a colexification for a specific language"""
+    concept: str
+    present: bool
+
 class ComparisonResult(BaseModel):
     """Complete comparison result including detailed colexification data"""
     main_similarity: float
     main_translations: tuple[str, str]
     variation_similarities: List[Dict]
     usage_notes: Dict[str, str]
-    colexification_data: Dict[str, List[ColexificationLink]]
-    family_patterns: Dict[str, FamilyPattern] | None
+    language_colexifications: Dict[str, List[LanguageColexification]]
+    family_colexifications: Dict[str, FamilyColexifications]

@@ -17,9 +17,10 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
     }));
   };
 
-  // Get the first result to extract original concepts
+  // Get the first result to extract original concepts from family_colexifications
   const firstResult = Object.values(results)[0];
-  const originalConcepts = Object.keys(firstResult.colexification_data);
+  // Concepts are now the keys in the language_colexifications object
+  const originalConcepts = Object.keys(firstResult.language_colexifications);
 
   return (
     <div className="space-y-6">
@@ -140,10 +141,11 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
             {/* Colexification Graph Section */}
             {originalConcepts.length >= 2 && (
               <ColexificationGraph
-                concept1={originalConcepts[0]}
-                concept2={originalConcepts[1]}
-                colexification_data={result.colexification_data}
-              />
+              concept1={originalConcepts[0]}
+              concept2={originalConcepts[1]}
+              colexifications={result.language_colexifications}
+              className="mt-4"
+            />
             )}
           </div>
         </div>

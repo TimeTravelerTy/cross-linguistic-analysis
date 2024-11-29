@@ -2,7 +2,8 @@ import networkx as nx
 from pathlib import Path
 from typing import Dict, List, Set, Optional
 import os
-from app.models.schemas import ColexificationData, FamilyPattern, ColexificationLink
+from app.models.schemas import LanguageColexification
+from app.constants.clics_mappings import get_clics_codes
 
 class ClicsService:
     def __init__(self):
@@ -83,169 +84,255 @@ class ClicsService:
                 return node
         return None
 
-    def get_colexifications(
-        self, 
-        concept: str,
-        target_languages: Optional[List[str]] = None
-    ) -> ColexificationData:
-        """Get colexification patterns for a concept from the network with detailed data"""
-        node_id = self._get_node_by_gloss(concept)
-        print(f"Looking for node with gloss: {concept}, found: {node_id}") 
-        if not node_id:
-            return ColexificationData(
-                concept=concept,
-                colexified_concepts=[],
-                family_frequencies={},
-                languages=[],
-                semantic_field=None,
-                category=None,
-                detailed_colexifications=[], 
-                total_languages=0 
-            )
+    # def get_colexifications(
+    #     self, 
+    #     concept: str,
+    #     target_languages: Optional[List[str]] = None
+    # ) -> ColexificationData:
+    #     """Get colexification patterns for a concept from the network with detailed data"""
+    #     node_id = self._get_node_by_gloss(concept)
+    #     print(f"Looking for node with gloss: {concept}, found: {node_id}") 
+    #     if not node_id:
+    #         return ColexificationData(
+    #             concept=concept,
+    #             colexified_concepts=[],
+    #             family_frequencies={},
+    #             languages=[],
+    #             semantic_field=None,
+    #             category=None,
+    #             detailed_colexifications=[], 
+    #             total_languages=0 
+    #         )
             
-        node_data = self.graph.nodes[node_id]
-        print(f"Node data: {node_data}")
+    #     node_data = self.graph.nodes[node_id]
+    #     print(f"Node data: {node_data}")
         
-        colexified = []
-        family_freqs = {}
-        all_languages = set()
+    #     colexified = []
+    #     family_freqs = {}
+    #     all_languages = set()
         
-        # Enhanced data structures
-        colexification_details = []
-        total_languages = set()
+    #     # Enhanced data structures
+    #     colexification_details = []
+    #     total_languages = set()
         
-        # Get all neighbors and their edge data
+    #     # Get all neighbors and their edge data
+    #     for neighbor in self.graph.neighbors(node_id):
+    #         neighbor_data = self.graph.nodes[neighbor]
+    #         edge = self.graph.get_edge_data(node_id, neighbor)
+    #         print(f"Processing neighbor: {neighbor_data.get('Gloss')}")  # Debug print
+    #         print(f"Edge data: {edge}")  # Debug print
+            
+    #         if neighbor_data and edge:
+    #             # Track basic colexification
+    #             colexified.append(neighbor_data['Gloss'])
+                
+    #             # Get languages from edge data
+    #             languages = set()
+    #             if 'wofam' in edge:
+    #                 for entry in edge['wofam'].split(';'):
+    #                     if entry:
+    #                         parts = entry.split('/')
+    #                         if len(parts) >= 4:
+    #                             lang = parts[3].strip()
+    #                             print(f"Found language: {lang}")  # Debug print
+    #                             family = parts[4].strip() if len(parts) >= 5 else None
+                                
+    #                             if target_languages is None or lang in target_languages:
+    #                                 languages.add(lang)
+    #                                 total_languages.add(lang)
+    #                                 all_languages.add(lang)
+                                    
+    #                                 if family:
+    #                                     family_freqs[family] = family_freqs.get(family, 0) + 1
+
+    #             # Add detailed colexification data
+    #             if languages:
+    #                 colexification_details.append(ColexificationLink(
+    #                     concept=neighbor_data['Gloss'],
+    #                     frequency=len(languages),
+    #                     languages=list(languages)
+    #                 ))
+        
+    #     # Normalize family frequencies
+    #     total = sum(family_freqs.values()) if family_freqs else 1
+    #     family_freqs = {k: v/total for k, v in family_freqs.items()}
+        
+    #     return ColexificationData(
+    #         concept=node_data.get('Gloss', concept),
+    #         colexified_concepts=colexified,
+    #         family_frequencies=family_freqs,
+    #         languages=list(all_languages),
+    #         semantic_field=node_data.get('Semanticfield'),
+    #         category=node_data.get('Category'),
+    #         detailed_colexifications=sorted(
+    #             colexification_details,
+    #             key=lambda x: x.frequency,
+    #             reverse=True
+    #         ),
+    #         total_languages=len(total_languages)
+    #     )
+    
+    def get_language_colexifications(
+        self,
+        concept: str,
+        language_code: str,
+        language_family: str
+    ) -> List[LanguageColexification]:
+        """Get colexifications specific to a language"""
+        node_id = self._get_node_by_gloss(concept)
+        if not node_id:
+            return []
+            
+        colexifications = []
+
+        clics_codes = get_clics_codes(language_code)
+        
         for neighbor in self.graph.neighbors(node_id):
             neighbor_data = self.graph.nodes[neighbor]
             edge = self.graph.get_edge_data(node_id, neighbor)
-            print(f"Processing neighbor: {neighbor_data.get('Gloss')}")  # Debug print
-            print(f"Edge data: {edge}")  # Debug print
             
-            if neighbor_data and edge:
-                # Track basic colexification
-                colexified.append(neighbor_data['Gloss'])
-                
-                # Get languages from edge data
+            if neighbor_data and edge and 'wofam' in edge:
+                # Check if this language has this colexification
                 languages = set()
-                if 'wofam' in edge:
-                    for entry in edge['wofam'].split(';'):
-                        if entry:
-                            parts = entry.split('/')
-                            if len(parts) >= 4:
-                                lang = parts[3].strip()
-                                print(f"Found language: {lang}")  # Debug print
-                                family = parts[4].strip() if len(parts) >= 5 else None
-                                
-                                if target_languages is None or lang in target_languages:
-                                    languages.add(lang)
-                                    total_languages.add(lang)
-                                    all_languages.add(lang)
-                                    
-                                    if family:
-                                        family_freqs[family] = family_freqs.get(family, 0) + 1
-
-                # Add detailed colexification data
-                if languages:
-                    colexification_details.append(ColexificationLink(
-                        concept=neighbor_data['Gloss'],
-                        frequency=len(languages),
-                        languages=list(languages)
-                    ))
+                for entry in edge['wofam'].split(';'):
+                    if entry:
+                        parts = entry.split('/')
+                        if len(parts) >= 4:
+                            lang = parts[3].strip()
+                            languages.add(lang)
+                
+                colexifications.append(LanguageColexification(
+                    concept=neighbor_data['Gloss'],
+                    present=any(code in languages for code in clics_codes)
+                ))
         
-        # Normalize family frequencies
-        total = sum(family_freqs.values()) if family_freqs else 1
-        family_freqs = {k: v/total for k, v in family_freqs.items()}
-        
-        return ColexificationData(
-            concept=node_data.get('Gloss', concept),
-            colexified_concepts=colexified,
-            family_frequencies=family_freqs,
-            languages=list(all_languages),
-            semantic_field=node_data.get('Semanticfield'),
-            category=node_data.get('Category'),
-            detailed_colexifications=sorted(
-                colexification_details,
-                key=lambda x: x.frequency,
-                reverse=True
-            ),
-            total_languages=len(total_languages)
-        )
-        
-    def get_family_patterns(
-    self, 
-    concept1: str, 
-    concept2: str, 
-    families: Optional[List[str]] = None
-) -> Dict[str, FamilyPattern]:
-        """Get colexification patterns by language family for a pair of concepts."""
+        return colexifications
+    
+    def get_family_colexifications(
+        self,
+        concept1: str,
+        concept2: str,
+        families: Optional[List[str]] = None
+    ) -> Dict[str, Dict]:
+        """
+        Get colexification patterns for two concepts across specified families.
+        Returns detailed data about what concepts colexify with either input concept
+        within each language family.
+        """
         node1 = self._get_node_by_gloss(concept1)
         node2 = self._get_node_by_gloss(concept2)
         
         if not node1 or not node2:
             return {}
 
-        # Get direct patterns first (keep original functionality)
-        edge_data = self.graph.get_edge_data(node1, node2)
-        family_colex_langs = {}
+        family_results = {}
         
-        if edge_data and 'wofam' in edge_data:
-            entries = edge_data['wofam'].split(';')
-            for entry in entries:
-                if not entry:
-                    continue
-                parts = entry.split('/')
-                if len(parts) >= 5:
-                    family = parts[4].strip()
-                    language = parts[3].strip()
-                    
-                    if families and family not in families:
-                        continue
-                        
-                    if family not in family_colex_langs:
-                        family_colex_langs[family] = set()
-                    family_colex_langs[family].add(language)
-
-        # Also check for indirect connections through one intermediate node
-        for neighbor in self.graph.neighbors(node1):
-            if neighbor == node2:
-                continue  # Skip direct connection
+        # Process requested families
+        for family in (families or self.family_language_map.keys()):
+            # Get all languages in this family from CLICS
+            family_langs = self.family_language_map.get(family, set())
+            if not family_langs:
+                continue
+                
+            # Initialize family data
+            family_results[family] = {
+                'concept1_colexifications': {},  # concept -> {frequency, languages}
+                'concept2_colexifications': {},
+                'direct_colexification': {
+                    'frequency': 0,
+                    'languages': set()
+                },
+                'total_languages': len(family_langs)
+            }
             
-            # Check if this neighbor connects to concept2
-            indirect_edge = self.graph.get_edge_data(neighbor, node2)
-            if indirect_edge and 'wofam' in indirect_edge:
-                # Process indirect connections same way as direct ones
-                for entry in indirect_edge['wofam'].split(';'):
+            # Check direct colexification between concept1 and concept2
+            edge_data = self.graph.get_edge_data(node1, node2)
+            if edge_data and 'wofam' in edge_data:
+                for entry in edge_data['wofam'].split(';'):
                     if not entry:
                         continue
                     parts = entry.split('/')
                     if len(parts) >= 5:
-                        family = parts[4].strip()
+                        lang_family = parts[4].strip()
                         language = parts[3].strip()
                         
-                        if families and family not in families:
-                            continue
-                        
-                        # Add to same structure but mark as indirect
-                        if family not in family_colex_langs:
-                            family_colex_langs[family] = set()
-                        family_colex_langs[family].add(f"indirect:{language}")
+                        if lang_family == family and language in family_langs:
+                            family_results[family]['direct_colexification']['languages'].add(language)
 
-        # Calculate patterns using the total language counts
-        patterns = {}
-        for family, colex_langs in family_colex_langs.items():
-            total_langs = len(self.family_language_map.get(family, set()))
-            if total_langs > 0:
-                # Separate direct and indirect connections
-                direct_langs = {l for l in colex_langs if not l.startswith('indirect:')}
-                indirect_langs = {l.split(':', 1)[1] for l in colex_langs if l.startswith('indirect:')}
+            # Process neighbors of concept1
+            for neighbor in self.graph.neighbors(node1):
+                if neighbor == node2:
+                    continue
+                    
+                edge = self.graph.get_edge_data(node1, neighbor)
+                if not edge or 'wofam' not in edge:
+                    continue
+                    
+                neighbor_concept = self.graph.nodes[neighbor].get('Gloss')
+                if not neighbor_concept:
+                    continue
+                    
+                # Track languages in this family that show this colexification
+                family_langs_with_colex = set()
                 
-                proportion = len(direct_langs) / total_langs
-                patterns[family] = FamilyPattern(
-                    proportion=proportion,
-                    languages_with_colexification=list(direct_langs),
-                    total_languages_in_family=total_langs,
-                    # Add indirect connections if found
-                    indirect_languages=list(indirect_langs) if indirect_langs else None
-                )
+                for entry in edge['wofam'].split(';'):
+                    if not entry:
+                        continue
+                    parts = entry.split('/')
+                    if len(parts) >= 5:
+                        lang_family = parts[4].strip()
+                        language = parts[3].strip()
+                        
+                        if lang_family == family and language in family_langs:
+                            family_langs_with_colex.add(language)
+                
+                if family_langs_with_colex:
+                    family_results[family]['concept1_colexifications'][neighbor_concept] = {
+                        'frequency': len(family_langs_with_colex),
+                        'languages': family_langs_with_colex
+                    }
 
-        return patterns
+            # Process neighbors of concept2
+            for neighbor in self.graph.neighbors(node2):
+                if neighbor == node1:
+                    continue
+                    
+                edge = self.graph.get_edge_data(node2, neighbor)
+                if not edge or 'wofam' not in edge:
+                    continue
+                    
+                neighbor_concept = self.graph.nodes[neighbor].get('Gloss')
+                if not neighbor_concept:
+                    continue
+                    
+                family_langs_with_colex = set()
+                
+                for entry in edge['wofam'].split(';'):
+                    if not entry:
+                        continue
+                    parts = entry.split('/')
+                    if len(parts) >= 5:
+                        lang_family = parts[4].strip()
+                        language = parts[3].strip()
+                        
+                        if lang_family == family and language in family_langs:
+                            family_langs_with_colex.add(language)
+                
+                if family_langs_with_colex:
+                    family_results[family]['concept2_colexifications'][neighbor_concept] = {
+                        'frequency': len(family_langs_with_colex),
+                        'languages': family_langs_with_colex
+                    }
+            
+            # Calculate direct colexification frequency
+            direct_langs = family_results[family]['direct_colexification']['languages']
+            family_results[family]['direct_colexification']['frequency'] = len(direct_langs)
+            family_results[family]['direct_colexification']['languages'] = list(direct_langs)
+            
+            # Convert language sets to lists for JSON serialization
+            for colexs in [family_results[family]['concept1_colexifications'], 
+                        family_results[family]['concept2_colexifications']]:
+                for data in colexs.values():
+                    data['languages'] = list(data['languages'])
+        
+        return family_results
