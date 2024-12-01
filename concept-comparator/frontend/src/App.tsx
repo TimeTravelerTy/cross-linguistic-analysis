@@ -170,6 +170,7 @@ function App() {
             <ComparisonContainer 
               results={results}
               languages={languages}
+                originalConcepts={[concept1, concept2]}
             />
           )}
 

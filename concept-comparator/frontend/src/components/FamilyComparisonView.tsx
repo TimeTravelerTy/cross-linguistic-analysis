@@ -15,11 +15,13 @@ import { FamilyGraph } from './FamilyGraph';
 interface FamilyComparisonViewProps {
   results: Record<string, ComparisonResult>;
   languages: Languages;
+  originalConcepts: [string, string]; 
 }
 
 export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({ 
   results, 
-  languages 
+  languages, 
+  originalConcepts
 }) => {
   const familyResults = useMemo(() => {
     const grouped: Record<string, {
@@ -57,10 +59,6 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
     name: family,
     similarity: data.embeddings.reduce((sum, curr) => sum + curr.similarity, 0) / data.embeddings.length
   }));
-
-  // Get original concepts from main_translations of first result
-  const firstResult = Object.values(results)[0];
-  const [concept1, concept2] = firstResult.main_translations;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -129,8 +127,8 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
             data.family_colexifications && (
               <FamilyGraph
                 key={family}
-                concept1={concept1}
-                concept2={concept2}
+                concept1={originalConcepts[0]}
+                concept2={originalConcepts[1]}
                 familyData={data.family_colexifications}
                 familyName={family}
                 className="mt-4"

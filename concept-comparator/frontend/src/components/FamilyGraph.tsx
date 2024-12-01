@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Network, Edge as VisEdge, Node as VisNode, Options } from 'vis-network';
 import { DataSet } from 'vis-data';
 import { FamilyColexifications } from '../types';
+import 'vis-network/dist/dist/vis-network.css';
 
 interface FamilyGraphProps {
   concept1: string;
@@ -40,7 +41,6 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Create base nodes for the two concepts
     const nodesArray: Node[] = [
       { id: 1, label: concept1, color: '#93c5fd', level: 1 },
       { id: 2, label: concept2, color: '#86efac', level: 1 }
@@ -48,12 +48,11 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
 
     let nodeId = 3;
     const edgesArray: Edge[] = [];
-    const addedNodes = new Set([concept1, concept2]);  // Track concepts, not just IDs
+    const addedNodes = new Set([concept1.toLowerCase(), concept2.toLowerCase()]);
 
     // Process colexifications for concept1
     Object.entries(familyData.concept1_colexifications).forEach(([concept, data]) => {
-      // Skip if this is one of our main concepts
-      if (addedNodes.has(concept)) return;
+      if (addedNodes.has(concept.toLowerCase())) return;
 
       nodesArray.push({
         id: nodeId,
@@ -63,24 +62,24 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
       });
 
       const frequency = data.frequency / familyData.total_languages;
+      const frequencyPercent = (frequency * 100).toFixed(1);
 
       edgesArray.push({
         from: 1,
         to: nodeId,
         width: Math.max(1, frequency * 5),
         color: '#cbd5e1',
-        title: `Frequency: ${(frequency * 100).toFixed(1)}%\n(${data.frequency} of ${familyData.total_languages} languages)`,
+        title: `${frequencyPercent}% (${data.frequency}/${familyData.total_languages} languages)`,
         frequency
       });
 
-      addedNodes.add(concept);
+      addedNodes.add(concept.toLowerCase());
       nodeId++;
     });
 
     // Process colexifications for concept2
     Object.entries(familyData.concept2_colexifications).forEach(([concept, data]) => {
-      // Skip if we've already added this concept
-      if (addedNodes.has(concept)) return;
+      if (addedNodes.has(concept.toLowerCase())) return;
 
       nodesArray.push({
         id: nodeId,
@@ -90,30 +89,33 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
       });
 
       const frequency = data.frequency / familyData.total_languages;
+      const frequencyPercent = (frequency * 100).toFixed(1);
 
       edgesArray.push({
         from: 2,
         to: nodeId,
         width: Math.max(1, frequency * 5),
         color: '#cbd5e1',
-        title: `Frequency: ${(frequency * 100).toFixed(1)}%\n(${data.frequency} of ${familyData.total_languages} languages)`,
+        title: `${frequencyPercent}% (${data.frequency}/${familyData.total_languages} languages)`,
         frequency
       });
 
-      addedNodes.add(concept);
+      addedNodes.add(concept.toLowerCase());
       nodeId++;
     });
 
-    // Add direct colexification edge if it exists
+    // Add direct colexification edge
     if (familyData.direct_colexification.frequency > 0) {
       const frequency = familyData.direct_colexification.frequency / familyData.total_languages;
+      const frequencyPercent = (frequency * 100).toFixed(1);
+      
       edgesArray.push({
         id: '1-2',
         from: 1,
         to: 2,
         width: Math.max(2, frequency * 5),
         color: '#93c5fd',
-        title: `Colexification rate: ${(frequency * 100).toFixed(1)}%\n(${familyData.direct_colexification.frequency} of ${familyData.total_languages} languages)`,
+        title: `Direct colexification: ${frequencyPercent}% (${familyData.direct_colexification.frequency}/${familyData.total_languages} languages)`,
         frequency
       });
     }
@@ -149,74 +151,29 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
         }
       },
       interaction: {
-        dragNodes: true,
-        dragView: true,
-        zoomView: true,
         hover: true,
-        tooltipDelay: 100,
-        zoomSpeed: 0.2,
-        keyboard: {
-          enabled: true,
-          bindToWindow: false
-        },
-        navigationButtons: true,
+        tooltipDelay: 40,
+        hideEdgesOnDrag: false,
+        keyboard: false,  // Disable keyboard controls
+        navigationButtons: false,  // Remove navigation buttons
+        zoomView: true,  // Keep zoom functionality
+        dragView: true   // Keep drag functionality
       }
     };
 
-    // Create network
-    const network = new Network(
-      containerRef.current,
-      { nodes, edges },
-      options
-    );
+    const network = new Network(containerRef.current, { nodes, edges }, options);
 
-    // Center initially with zoom limits
+    // Center graph with zoom limits
     network.once('stabilizationIterationsDone', () => {
       network.fit({
         nodes: nodes.getIds(),
         animation: {
           duration: 1000,
           easingFunction: "easeInOutQuad"
-        },
-        minZoomLevel: 0.7,
-        maxZoomLevel: 1.5
+        }
       });
     });
 
-    // Tighter boundary control
-    network.on("dragEnd", () => {
-      const viewPosition = network.getViewPosition();
-      const scale = network.getScale();
-      
-      if (!containerRef.current) return;
-      
-      const container = containerRef.current.getBoundingClientRect();
-      const centerX = container.width / 2;
-      const centerY = container.height / 2;
-      
-      // Reduced maxDistance for tighter control
-      const maxDistance = Math.min(centerX, centerY) / (scale * 2);
-      
-      const distanceFromCenter = Math.sqrt(
-        Math.pow(viewPosition.x, 2) + Math.pow(viewPosition.y, 2)
-      );
-
-      if (distanceFromCenter > maxDistance) {
-        network.moveTo({
-          position: {
-            x: viewPosition.x * 0.3,  // More aggressive repositioning
-            y: viewPosition.y * 0.3
-          },
-          animation: {
-            duration: 500,
-            easingFunction: "easeInOutQuad"
-          }
-        });
-      }
-    });
-
-
-    // Keep reference for cleanup
     networkRef.current = network;
 
     return () => {
@@ -240,7 +197,7 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
 
       <div 
         ref={containerRef} 
-        className="border border-gray-100 rounded-lg"
+        className="border border-gray-100 rounded-lg relative"
         style={{ height: '256px' }}
       />
 

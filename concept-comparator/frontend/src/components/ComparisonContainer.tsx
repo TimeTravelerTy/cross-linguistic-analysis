@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { ComparisonResults } from './ComparisonResults';
 import { FamilyComparisonView } from './FamilyComparisonView';
+import { AreaComparisonView } from './AreaComparisonView';
 import { ComparisonResult, Languages } from '../types';
 
 interface ComparisonContainerProps {
   results: Record<string, ComparisonResult>;
   languages: Languages;
+  originalConcepts: [string, string];
 }
 
 export const ComparisonContainer: React.FC<ComparisonContainerProps> = ({
   results,
   languages,
+  originalConcepts
 }) => {
-  const [activeView, setActiveView] = useState<'language' | 'family'>('language');
+  const [activeView, setActiveView] = useState<'language' | 'family' | 'area'>('language');
 
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -44,16 +47,33 @@ export const ComparisonContainer: React.FC<ComparisonContainerProps> = ({
           >
             Family View
           </button>
+          <button
+            onClick={() => setActiveView('area')}
+            className={`px-6 py-3 font-medium text-sm transition-colors
+              ${activeView === 'area'
+                ? 'border-b-2 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+              }`}
+          >
+            Area View
+          </button>
         </div>
       </div>
       
       <div className="p-6">
         {activeView === 'language' ? (
           <ComparisonResults results={results} />
-        ) : (
+        ) : activeView === 'family' ? (
           <FamilyComparisonView 
             results={results}
             languages={languages}
+            originalConcepts={originalConcepts}
+          />
+        ) : (
+          <AreaComparisonView 
+            results={results}
+            languages={languages}
+            originalConcepts={originalConcepts}
           />
         )}
       </div>

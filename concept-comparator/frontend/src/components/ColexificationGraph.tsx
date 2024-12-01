@@ -161,7 +161,7 @@ export const ColexificationGraph: React.FC<ColexificationGraphProps> = ({
           enabled: true,
           bindToWindow: false
         },
-        navigationButtons: true
+        navigationButtons: false
       }
     };
 
