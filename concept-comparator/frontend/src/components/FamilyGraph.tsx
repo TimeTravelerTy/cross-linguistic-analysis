@@ -123,6 +123,10 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
     const nodes = new DataSet<Node>(nodesArray);
     const edges = new DataSet<Edge>(edgesArray);
 
+    // Define zoom limits
+    const MIN_ZOOM = 0.4;
+    const MAX_ZOOM = 2.5;
+
     const options: Options = {
       nodes: {
         shape: 'box',
@@ -157,22 +161,102 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
         keyboard: false,  // Disable keyboard controls
         navigationButtons: false,  // Remove navigation buttons
         zoomView: true,  // Keep zoom functionality
+        zoomSpeed: 0.3,
         dragView: true   // Keep drag functionality
       }
     };
 
     const network = new Network(containerRef.current, { nodes, edges }, options);
+    
+    // Simple zoom limiter that only prevents extreme zooming
+    network.on("zoom", () => {
+      const scale = network.getScale();
+      
+      if (scale <= MIN_ZOOM) {
+        network.moveTo({
+          scale: MIN_ZOOM,
+          animation: {
+            duration: 150,
+            easingFunction: "easeInOutQuad"
+          }
+        });
+      } else if (scale >= MAX_ZOOM) {
+        network.moveTo({
+          scale: MAX_ZOOM,
+          animation: {
+            duration: 150,
+            easingFunction: "easeInOutQuad"
+          }
+        });
+      }
+    });
 
-    // Center graph with zoom limits
+    // Gentle boundary control that only acts on extreme positions
+    network.on("dragEnd", () => {
+      if (!containerRef.current) return;
+      
+      const viewPosition = network.getViewPosition();
+      
+      // Get positions of all nodes
+      const positions = network.getPositions(nodes.getIds());
+      const nodePositions = Object.values(positions);
+      
+      if (nodePositions.length === 0) return;
+      
+      // Calculate the bounding box of nodes
+      const bbox = nodePositions.reduce((box, pos) => ({
+        minX: Math.min(box.minX, pos.x),
+        maxX: Math.max(box.maxX, pos.x),
+        minY: Math.min(box.minY, pos.y),
+        maxY: Math.max(box.maxY, pos.y)
+      }), {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity
+      });
+      
+      // Calculate content dimensions
+      const contentWidth = bbox.maxX - bbox.minX;
+      const contentHeight = bbox.maxY - bbox.minY;
+      
+      // Calculate a very generous boundary (3x the content size)
+      const maxDistance = Math.max(contentWidth, contentHeight) * 3;
+      
+      // Only intervene if we're way outside the boundary
+      const distance = Math.sqrt(
+        Math.pow(viewPosition.x, 2) + Math.pow(viewPosition.y, 2)
+      );
+      
+      if (distance > maxDistance) {
+        // Calculate new position that's still generous but not extreme
+        const ratio = maxDistance / distance * 0.8; // 80% of max distance
+        network.moveTo({
+          position: {
+            x: viewPosition.x * ratio,
+            y: viewPosition.y * ratio
+          },
+          animation: {
+            duration: 800,
+            easingFunction: "easeOutCubic"
+          }
+        });
+      }
+    });
+
+    // Initial positioning
     network.once('stabilizationIterationsDone', () => {
       network.fit({
         nodes: nodes.getIds(),
         animation: {
           duration: 1000,
           easingFunction: "easeInOutQuad"
-        }
+        },
+        minZoomLevel: MIN_ZOOM,
+        maxZoomLevel: MAX_ZOOM
       });
     });
+
 
     networkRef.current = network;
 

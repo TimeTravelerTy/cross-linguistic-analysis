@@ -33,6 +33,10 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
     Object.entries(results).forEach(([langCode, result]) => {
       const family = languages[langCode]?.family;
       if (!family) return;
+
+      console.log(`\nProcessing ${langCode} in family ${family}:`);
+      console.log('Result family_colexifications:', result.family_colexifications);
+      console.log('Language colexifications:', result.language_colexifications);
       
       if (!grouped[family]) {
         grouped[family] = {
