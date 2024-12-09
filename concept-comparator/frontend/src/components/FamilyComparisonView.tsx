@@ -135,6 +135,7 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
                 concept2={originalConcepts[1]}
                 familyData={data.family_colexifications}
                 familyName={family}
+                enableChains={true}
                 className="mt-4"
               />
             )

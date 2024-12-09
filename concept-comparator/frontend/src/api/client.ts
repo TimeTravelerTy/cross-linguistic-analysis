@@ -45,6 +45,32 @@ export const apiClient = {
   }) => api.post('/compare-concepts', data).then(res => res.data),
 };
 
+export const getSemanticChains = async (
+  concept1: string,
+  concept2: string,
+  family: string,
+  maxDepth: number = 4
+): Promise<{
+  chains: Array<{
+    path: string[];
+    scores: number[];
+    total_score: number;
+  }>;
+  family: string;
+  concepts: [string, string];
+}> => {
+  const response = await api.get(
+    `/semantic-chains/${encodeURIComponent(concept1)}/${encodeURIComponent(concept2)}`,
+    {
+      params: {
+        family,
+        max_depth: maxDepth
+      }
+    }
+  );
+  return response.data;
+};
+
 // Optional: Add error types for better error handling
 export interface ApiError {
   status: number;

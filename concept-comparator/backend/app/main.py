@@ -279,6 +279,35 @@ def get_language_family(lang_code: str) -> Optional[str]:
         return SUPPORTED_LANGUAGES[lang_code]['family']
     return None
 
+@app.get("/semantic-chains/{concept1}/{concept2}")
+async def get_semantic_chains(
+    concept1: str,
+    concept2: str,
+    family: str,
+    max_depth: int = 4
+):
+    """Get semantic chains between two concepts within a language family."""
+    try:
+        chains = clics_service.find_chains(
+            concept1.upper(),  # CLICS uses uppercase
+            concept2.upper(),
+            family,
+            max_depth
+        )
+        
+        return {
+            "chains": chains,
+            "family": family,
+            "concepts": [concept1, concept2]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error finding semantic chains: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error finding semantic chains: {str(e)}"
+        )
+
 
 @app.get("/test-clics/{concept}")
 async def test_clics(concept: str):

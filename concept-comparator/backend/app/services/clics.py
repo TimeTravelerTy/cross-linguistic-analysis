@@ -2,6 +2,7 @@ import networkx as nx
 from pathlib import Path
 from typing import Dict, List, Set, Optional
 import os
+import numpy as np
 from app.models.schemas import LanguageColexification
 from app.constants.clics_mappings import get_clics_codes
 
@@ -246,3 +247,93 @@ class ClicsService:
                         }
         
         return family_results
+    
+    def find_chains(self, concept1: str, concept2: str, family: str, max_depth: int = 4) -> List[Dict]:
+        """Find semantic chains between two concepts within a language family."""
+        print("\n=== Starting Chain Search ===")
+        print(f"Looking for chains between '{concept1}' and '{concept2}' in {family} family")
+        print(f"Graph is directed: {self.graph.is_directed()}")
+        node1 = self._get_node_by_gloss(concept1)
+        node2 = self._get_node_by_gloss(concept2)
+        
+        if not node1 or not node2:
+            print(f"Could not find nodes for {concept1} and/or {concept2}")
+            return []
+            
+        print(f"Finding paths between {concept1} ({node1}) and {concept2} ({node2})")
+        
+        try:
+            print("\nSearching for paths...")
+            # Find all simple paths up to max_depth
+            paths = list(nx.all_simple_paths(
+                self.graph, 
+                node1, 
+                node2, 
+                cutoff=max_depth
+            ))
+            print(f"Found {len(paths)} directed paths")
+            
+            chains = []
+            for path in paths:
+                scores = []
+                valid_chain = True
+                
+                for i in range(len(path)-1):
+                    edge_data = self.graph.get_edge_data(path[i], path[i+1])
+                    if not edge_data or 'wofam' not in edge_data:
+                        # No data or missing family info means we can’t validate
+                        valid_chain = False
+                        break
+                    
+                    edge_languages = self._get_family_languages(edge_data, family)
+                    
+                    if not edge_languages:
+                        # If this edge isn't attested in any language of the family, this chain fails
+                        valid_chain = False
+                        break
+                    
+                    # Calculate frequency score (unchanged)
+                    family_langs = self.family_language_map.get(family, set())
+                    freq = len(edge_languages) / len(family_langs) if family_langs else 0
+                    scores.append(freq)
+                
+                if valid_chain and scores:
+                    # Construct the chain data as before
+                    chain_glosses = [self.graph.nodes[n]["Gloss"] for n in path]
+                    print(f"\nValid chain found: {' -> '.join(chain_glosses)}")
+                    print(f"Scores: {[f'{s:.2f}' for s in scores]}")
+
+                    chains.append({
+                        "path": chain_glosses,
+                        "scores": scores,
+                        "total_score": np.prod(scores),
+                    })
+
+                else:
+                    print("Chain invalid or no scores")
+
+            return chains
+            
+        except Exception as e:
+            print(f"Error finding chains: {str(e)}")
+            return []
+
+    def _get_family_languages(self, edge_data: Dict, family: str) -> Set[str]:
+        """Extract languages from a specific family that show this connection."""
+        languages = set()
+        
+        if 'wofam' not in edge_data:
+            return languages
+            
+        for entry in edge_data['wofam'].split(';'):
+            if not entry:
+                continue
+            parts = entry.split('/')
+            if len(parts) >= 5:
+                edge_family = parts[4].strip()
+                language = parts[3].strip()
+                
+                if edge_family == family:
+                    languages.add(language)
+                    
+        return languages
