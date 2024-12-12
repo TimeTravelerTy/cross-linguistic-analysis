@@ -25,25 +25,6 @@ class ComparisonRequest(BaseModel):
     sense_id2: str
     languages: List[str]
 
-# class ColexificationData(BaseModel):
-#     """Data about colexification patterns for a concept"""
-#     concept: str
-#     colexified_concepts: List[str]
-#     family_frequencies: Dict[str, float]  # family -> frequency
-#     languages: List[str]
-#     semantic_field: Optional[str] = None
-#     category: Optional[str] = None
-#     detailed_colexifications: List[ColexificationLink]
-#     total_languages: int
-
-class FamilyPattern(BaseModel):
-    """Detailed colexification data for a language family"""
-    proportion: float
-    languages_with_colexification: List[str]
-    total_languages_in_family: int
-    indirect_languages: Optional[List[str]] = None
-    intermediate_concepts: Optional[List[Dict[str, Union[str, int]]]] = None
-
 class FamilyColexificationData(BaseModel):
     """Detailed colexification data for concepts within a family"""
     frequency: int

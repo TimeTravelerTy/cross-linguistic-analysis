@@ -89,7 +89,6 @@ class ClicsService:
         self,
         concept: str,
         language_code: str,
-        language_family: str
     ) -> List[LanguageColexification]:
         """Get colexifications specific to a language"""
         node_id = self._get_node_by_gloss(concept)
@@ -292,13 +291,13 @@ class ClicsService:
                         valid_chain = False
                         break
                     
-                    # Calculate frequency score (unchanged)
+                    # Calculate frequency score 
                     family_langs = self.family_language_map.get(family, set())
                     freq = len(edge_languages) / len(family_langs) if family_langs else 0
                     scores.append(freq)
                 
                 if valid_chain and scores:
-                    # Construct the chain data as before
+                    # Construct the chain data 
                     chain_glosses = [self.graph.nodes[n]["Gloss"] for n in path]
                     print(f"\nValid chain found: {' -> '.join(chain_glosses)}")
                     print(f"Scores: {[f'{s:.2f}' for s in scores]}")
@@ -306,7 +305,7 @@ class ClicsService:
                     chains.append({
                         "path": chain_glosses,
                         "scores": scores,
-                        "total_score": np.prod(scores),
+                        "total_score": np.exp(np.mean(np.log(scores))) if all(s > 0 for s in scores) else 0,
                     })
 
                 else:

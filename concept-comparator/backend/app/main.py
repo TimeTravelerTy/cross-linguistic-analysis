@@ -8,14 +8,9 @@ from app.models.schemas import (
     WordSense, 
     ComparisonRequest, 
     ComparisonResult,
-    Translation
 )
 from app.services.clics import ClicsService
 from app.models.schemas import ComparisonResult
-from app.constants.clics_mappings import get_clics_codes
-import numpy as np
-from scipy.spatial.distance import cosine
-import os
 from dotenv import load_dotenv
 import logging
 
@@ -81,8 +76,8 @@ SUPPORTED_LANGUAGES = {
         'vie': {'name': 'Vietnamese', 'family': 'Austroasiatic', 'subfamily': 'Vietic'},
         'khm': {'name': 'Khmer', 'family': 'Austroasiatic', 'subfamily': 'Khmer'},
         
-        'tha': {'name': 'Thai', 'family': 'Kra-Dai', 'subfamily': 'Tai'},
-        'lao': {'name': 'Lao', 'family': 'Kra-Dai', 'subfamily': 'Tai'},
+        'tha': {'name': 'Thai', 'family': 'Tai-Kadai', 'subfamily': 'Tai'},
+        'lao': {'name': 'Lao', 'family': 'Tai-Kadai', 'subfamily': 'Tai'},
         
         'mal': {'name': 'Malayalam', 'family': 'Dravidian', 'subfamily': 'South Dravidian'},
         'tam': {'name': 'Tamil', 'family': 'Dravidian', 'subfamily': 'South Dravidian'},
@@ -101,9 +96,9 @@ SUPPORTED_LANGUAGES = {
         'est': {'name': 'Estonian', 'family': 'Uralic', 'subfamily': 'Finnic'},
         'hun': {'name': 'Hungarian', 'family': 'Uralic', 'subfamily': 'Ugric'},
         
-        'swa': {'name': 'Swahili', 'family': 'Niger-Congo', 'subfamily': 'Bantu'},
-        'zul': {'name': 'Zulu', 'family': 'Niger-Congo', 'subfamily': 'Bantu'},
-        'yor': {'name': 'Yoruba', 'family': 'Niger-Congo', 'subfamily': 'Volta-Niger'},
+        'swa': {'name': 'Swahili', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
+        'zul': {'name': 'Zulu', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
+        'yor': {'name': 'Yoruba', 'family': 'Atlantic-Congo', 'subfamily': 'Volta-Niger'},
         
         'kat': {'name': 'Georgian', 'family': 'Kartvelian', 'subfamily': 'Kartvelian'},
         'eus': {'name': 'Basque', 'family': 'Language Isolate', 'subfamily': 'None'},
@@ -157,15 +152,13 @@ async def compare_concepts(request: ComparisonRequest):
                 # Get language-specific colexifications
                 concept1_colexs = clics_service.get_language_colexifications(
                     request.concept1, 
-                    lang, 
-                    family
+                    lang
                 )
                 
                 print("\nGetting concept2 colexifications...")
                 concept2_colexs = clics_service.get_language_colexifications(
                     request.concept2,
-                    lang,
-                    family
+                    lang
                 ) 
 
                 

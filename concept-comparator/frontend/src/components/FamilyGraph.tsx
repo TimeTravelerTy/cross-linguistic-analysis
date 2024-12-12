@@ -3,6 +3,7 @@ import { Network, Edge as VisEdge, Node as VisNode, Options } from 'vis-network'
 import { DataSet } from 'vis-data';
 import { FamilyColexifications } from '../types';
 import { useSemanticChains } from '../hooks/useSemanticChains';
+import { SemanticChainGraph } from './SemanticChainGraph'
 import 'vis-network/dist/dist/vis-network.css';
 
 interface FamilyGraphProps {
@@ -40,8 +41,6 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
-  const chainContainerRef = useRef<HTMLDivElement>(null);
-  const chainNetworkRef = useRef<Network | null>(null);
   const [showChains, setShowChains] = useState(false);
 
   // Fetch chain data
@@ -163,12 +162,12 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
         enabled: true,
         stabilization: true,
         barnesHut: {
-          gravitationalConstant: -2000,
+          gravitationalConstant: -1000,
           centralGravity: 0.5,
           springLength: 95,
           springConstant: 0.04,
           damping: 0.09,
-          avoidOverlap: 0.1
+          avoidOverlap: 0.2
         }
       },
       interaction: {
@@ -205,149 +204,6 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
     };
   }, [concept1, concept2, familyData]);
 
-  // Setup chain visualization network
-  useEffect(() => {
-    if (!chainContainerRef.current || !chainData?.chains.length) return;
-    if (chainNetworkRef.current) {
-      chainNetworkRef.current.destroy();
-      chainNetworkRef.current = null;
-    }
-  
-    const nodes = new DataSet<Node>();
-    const edges = new DataSet<Edge>();
-    const nodeMap = new Map<string, number>();
-    let nodeId = 1;
-  
-    // Color palette for different paths
-    const pathColors = [
-      '#3b82f6', // blue
-      '#10b981', // emerald
-      '#8b5cf6', // violet
-      '#f59e0b', // amber
-      '#ec4899'  // pink
-    ];
-  
-    // First pass: create unique nodes
-    chainData.chains.forEach(chain => {
-      chain.path.forEach(concept => {
-        if (!nodeMap.has(concept)) {
-          const isEndpoint = concept === chain.path[0] || concept === chain.path[chain.path.length - 1];
-          nodeMap.set(concept, nodeId);
-          nodes.add({
-            id: nodeId,
-            label: concept,
-            color: isEndpoint ? '#93c5fd' : '#e5e7eb',
-            level: isEndpoint ? (concept === chain.path[0] ? 0 : 2) : 1,
-            font: { 
-              size: 14,
-              face: 'Inter'
-            }
-          });
-          nodeId++;
-        }
-      });
-    });
-  
-    // Second pass: create edges with different colors per path
-    chainData.chains.forEach((chain, chainIndex) => {
-      const pathColor = pathColors[chainIndex % pathColors.length];
-      
-      for (let i = 0; i < chain.path.length - 1; i++) {
-        const fromId = nodeMap.get(chain.path[i])!;
-        const toId = nodeMap.get(chain.path[i + 1])!;
-        const frequency = chain.scores[i];
-        
-        
-        edges.add({
-          id: `${chainIndex}-${fromId}-${toId}`,
-          from: fromId,
-          to: toId,
-          width: Math.max(2, frequency * 5),
-          color: pathColor,
-          title: `Path ${chainIndex + 1}\nFrequency: ${(frequency * 100).toFixed(1)}%`,
-          smooth: {
-            enabled: true,
-            type: 'curvedCW',
-            roundness: 0.15 + (chainIndex * 0.08),
-            forceDirection: 'horizontal'
-          },
-  
-        });
-      }
-    });
-  
-    const options: Options = {
-      nodes: {
-        shape: 'box',
-        margin: {top : 10},
-        borderWidth: 1,
-        shadow: {
-          enabled: true,
-          size: 3,
-          x: 1,
-          y: 1
-        }
-      },
-      edges: {
-        arrows: {
-          to: {
-            enabled: true,
-            scaleFactor: 0.5
-          }
-        },
-        hoverWidth: 2,
-        selectionWidth: 2
-      },
-      layout: {
-        improvedLayout: true,
-        hierarchical: {
-          enabled: true,
-          direction: 'LR',
-          sortMethod: 'directed',
-          levelSeparation: 150,
-          nodeSpacing: chainData.chains.length > 3 ? 130 : 100,
-          treeSpacing: chainData.chains.length > 3 ? 60 : 100,
-          edgeMinimization: false,
-          parentCentralization: true
-        }
-      },
-      physics: {
-        enabled: false
-      },
-      interaction: {
-        hover: true,
-        tooltipDelay: 100
-      }
-    };
-  
-    const network = new Network(chainContainerRef.current, { nodes, edges }, options);
-    chainNetworkRef.current = network;
-  
-  
-    network.once('afterDrawing', () => {
-      network.fit({
-        nodes: nodes.getIds(),
-        animation: {
-          duration: 1000,
-          easingFunction: "easeInOutQuad"
-        }
-      });
-    });
-  
-    return () => {
-      if (chainNetworkRef.current) {
-        chainNetworkRef.current.destroy();
-        chainNetworkRef.current = null;
-      }
-      // Clean up legend
-      if (chainContainerRef.current) {
-        const legend = chainContainerRef.current.querySelector('div[style*="position: absolute"]');
-        if (legend) {
-          legend.remove();
-        }
-      }
-    };
-  }, [chainData]);
 
   return (
     <div className={`bg-white rounded-lg p-4 ${className}`}>
@@ -393,11 +249,7 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
                   <div className="mb-2 text-sm text-gray-600">
                     Found {chainData.chains.length} semantic chain{chainData.chains.length > 1 ? 's' : ''}
                   </div>
-                  <div 
-                    ref={chainContainerRef}
-                    className="border border-gray-100 rounded-lg"
-                    style={{ height: '300px' }}
-                  />
+                  <SemanticChainGraph chains={chainData.chains} />
                 </>
               ) : (
                 <div className="text-sm text-gray-500 text-center py-4">
@@ -409,7 +261,7 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
+      {/* <div className="mt-4 grid grid-cols-2 gap-4">
         <div className="p-3 bg-gray-50 rounded-lg">
           <div className="text-sm font-medium text-gray-500">Direct Connection</div>
           <div className="mt-1 text-lg font-semibold">
@@ -419,7 +271,7 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
             {familyData.direct_colexification.languages.length} of {familyData.total_languages} languages
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

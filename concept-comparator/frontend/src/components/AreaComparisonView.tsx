@@ -211,15 +211,18 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
         </h3>
         <div className="space-y-6">
           {Object.entries(areaResults).map(([area, data]) => (
-            <FamilyGraph
-              key={area}
-              concept1={originalConcepts[0]}
-              concept2={originalConcepts[1]}
-              familyData={data.colexifications}
-              familyName={area}
-              className="mt-4"
-            />
+            data.colexifications && (
+              <FamilyGraph
+                key={area}
+                concept1={originalConcepts[0]}
+                concept2={originalConcepts[1]}
+                familyData={data.colexifications}
+                familyName={area}
+                className="mt-4"
+              />
+            )
           ))}
+    
         </div>
       </div>
 
