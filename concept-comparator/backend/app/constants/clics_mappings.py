@@ -1,82 +1,107 @@
 from typing import List
 
 CLICS_LANGUAGE_MAPPINGS = {
-    # Indo-European - Germanic
+    # Existing mappings
     'eng': ['wold-13', 'ids-190', 'northeuralex-eng'],
     'nld': ['wold-12', 'ids-191', 'northeuralex-nld'],
     'deu': ['wold-135', 'ids-194', 'northeuralex-deu'],
-    
-    # Indo-European - Romance
     'fra': ['wold-123', 'ids-171', 'northeuralex-fra'],
     'spa': ['wold-115', 'ids-176', 'northeuralex-spa'],
     'ita': ['wold-169', 'ids-170', 'northeuralex-ita'],
     'por': ['wold-274', 'ids-178', 'northeuralex-por'],
     'ron': ['wold-8', 'ids-179', 'northeuralex-ron'],
-    
-    # Indo-European - Slavic
     'rus': ['wold-309', 'ids-204', 'northeuralex-rus'],
     'pol': ['wold-273', 'ids-203', 'northeuralex-pol'],
     'ces': ['wold-103', 'ids-202', 'northeuralex-ces'],
     'bul': ['wold-75', 'ids-200', 'northeuralex-bul'],
-    
-    # Indo-European - Indo-Iranian
     'hin': ['wold-154', 'northeuralex-hin'],
     'ben': ['wold-72', 'northeuralex-ben'],
-    'urd': ['northeuralex-urd'],  # Not in WOLD/IDS
-    
-    # Indo-European - Other
-    'ell': ['wold-147', 'ids-168', 'northeuralex-ell'],  # Greek
-    'hye': ['wold-57', 'ids-206', 'northeuralex-hye'],  # Armenian
-    
-    # Afroasiatic
+    'urd': ['northeuralex-urd'],
+    'ell': ['wold-147', 'ids-168', 'northeuralex-ell'],
+    'hye': ['wold-57', 'ids-206', 'northeuralex-hye'],
     'ara': ['wold-53', 'northeuralex-arb'],
     'heb': ['wold-152', 'northeuralex-heb'],
     'amh': ['wold-51', 'northeuralex-amh'],
-    
-    # Sino-Tibetan
-    'zho': ['wold-22', 'wold-89', 'northeuralex-cmn'],  # Multiple codes for Chinese
-    'yue': ['wold-78'],  # Cantonese
-    'bod': ['northeuralex-bod'],  # Tibetan
-    
-    # Japonic
+    'zho': ['wold-22', 'wold-89', 'northeuralex-cmn'],
+    'yue': ['wold-78'],
+    'bod': ['northeuralex-bod'],
     'jpn': ['wold-21', 'northeuralex-jpn'],
-    
-    # Koreanic
     'kor': ['wold-189', 'northeuralex-kor'],
-    
-    # Austroasiatic
     'vie': ['wold-24', 'northeuralex-vie'],
     'khm': ['wold-110', 'ids-222', 'northeuralex-khm'],
-    
-    # Tai-Kadai
     'tha': ['wold-23', 'northeuralex-tha'],
     'lao': ['wold-193', 'northeuralex-lao'],
-    
-    # Dravidian
     'mal': ['wold-203', 'northeuralex-mal'],
     'tam': ['wold-339', 'northeuralex-tam'],
     'tel': ['northeuralex-tel'],
     'kan': ['wold-180', 'northeuralex-kan'],
-    
-    # Austronesian
-    'msa': ['wold-202', 'northeuralex-msa'],  # Malay
-    'ind': ['wold-27', 'northeuralex-ind'],   # Indonesian
+    'msa': ['wold-202', 'northeuralex-msa'],
+    'ind': ['wold-27', 'northeuralex-ind'],
     'jav': ['wold-175', 'northeuralex-jav'],
-    
-    # Turkic
     'tur': ['wold-356', 'northeuralex-tur'],
     'azj': ['wold-64', 'ids-71', 'northeuralex-azj'],
     'uzb': ['northeuralex-uzb'],
-    
-    # Uralic
     'fin': ['wold-119', 'ids-128', 'northeuralex-fin'],
     'est': ['ids-127', 'northeuralex-est'],
     'hun': ['wold-158', 'ids-131', 'northeuralex-hun'],
-    
-    # Niger-Congo
     'swa': ['northeuralex-swa'],
     'zul': ['northeuralex-zul'],
-    'yor': ['wold-384', 'northeuralex-yor']
+    'yor': ['wold-384', 'northeuralex-yor'],
+
+    # New Indo-European Languages
+    'bel': ['northeuralex-bel'],
+    'srp': ['northeuralex-srp'],
+    'hrv': ['northeuralex-hrv'],
+    'slk': ['northeuralex-slk'],
+    'slv': ['northeuralex-slv'],
+    'lav': ['northeuralex-lav'],
+    'lit': ['northeuralex-lit'],
+    'pan': ['northeuralex-pan'],
+    'mar': ['northeuralex-mar'],
+    'guj': ['northeuralex-guj'],
+    'nep': ['northeuralex-nep'],
+    'fas': ['northeuralex-fas'],
+    'tgk': ['northeuralex-tgk'],
+    'sqi': ['northeuralex-sqi'],
+    'gle': ['northeuralex-gle'],
+    'gla': ['northeuralex-gla'],
+    'cym': ['northeuralex-cym'],
+    'fry': ['northeuralex-fry'],
+    'isl': ['northeuralex-isl'],
+    'nor': ['northeuralex-nor'],
+    'dan': ['northeuralex-dan'],
+    'swe': ['northeuralex-swe'],
+
+    # New Turkic Languages
+    'kaz': ['northeuralex-kaz'],
+    'kir': ['northeuralex-kir'],
+    'tat': ['northeuralex-tat'],
+    'tuk': ['northeuralex-tuk'],
+    'uig': ['northeuralex-uig'],
+
+    # New Austronesian Languages
+    'ceb': ['northeuralex-ceb'],
+    'tgl': ['northeuralex-tgl'],
+    'sun': ['northeuralex-sun'],
+    'mlg': ['northeuralex-mlg'],
+
+    # New Niger-Congo Languages
+    'ibo': ['northeuralex-ibo'],
+    'wol': ['northeuralex-wol'],
+    'sna': ['northeuralex-sna'],
+    'nya': ['northeuralex-nya'],
+    'xho': ['northeuralex-xho'],
+    'sot': ['northeuralex-sot'],
+
+    # New Afroasiatic Languages
+    'hau': ['northeuralex-hau'],
+    'som': ['northeuralex-som'],
+
+    # Other New Languages
+    'sin': ['northeuralex-sin'],
+    'mon': ['northeuralex-mon'],
+    'mri': ['northeuralex-mri'],
+    'mlt': ['northeuralex-mlt']
 }
 
 def get_clics_codes(lang_code: str) -> List[str]:

@@ -43,9 +43,9 @@ class LanguageColexification(BaseModel):
     present: bool
 
 class ComparisonResult(BaseModel):
-    """Complete comparison result including detailed colexification data"""
     main_similarity: float
     main_translations: tuple[str, str]
+    embeddings: tuple[List[float], List[float]]  # Add embeddings
     variation_similarities: List[Dict]
     usage_notes: Dict[str, str]
     language_colexifications: Dict[str, List[LanguageColexification]]

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getLanguageName } from '../constants/languages';
 import { ColexificationGraph } from './ColexificationGraph';
+import SharedEmbeddingsViz from './SharedEmbeddingsViz';
 import { ComparisonResult } from '../types';
 
 interface ComparisonResultsProps {
@@ -24,6 +25,8 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
 
   return (
     <div className="space-y-6">
+      {/* Shared Embedding Visualization */}
+      <SharedEmbeddingsViz results={results} />
       {Object.entries(results).map(([langCode, result]) => (
         <div 
           key={langCode} 

@@ -46,6 +46,7 @@ export interface LanguageColexification {
 export interface ComparisonResult {
   main_similarity: number;
   main_translations: [string, string];
+  embeddings: [number[], number[]];
   variation_similarities: Array<{
     similarity: number;
     context: string;
