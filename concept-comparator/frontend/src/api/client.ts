@@ -43,6 +43,12 @@ export const apiClient = {
     sense_id2: string;
     languages: string[];
   }) => api.post('/compare-concepts', data).then(res => res.data),
+
+  searchClicsConcepts: (query: string) => 
+    api.get(`/search-clics-concepts/${encodeURIComponent(query)}`).then(res => res.data),
+    
+  getClicsConcepts: () => 
+    api.get('/clics-concepts').then(res => res.data),
 };
 
 export const getSemanticChains = async (

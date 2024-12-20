@@ -1,6 +1,6 @@
 import networkx as nx
 from pathlib import Path
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, Any
 import os
 import numpy as np
 from app.models.schemas import LanguageColexification
@@ -336,3 +336,53 @@ class ClicsService:
                     languages.add(language)
                     
         return languages
+    
+    def get_all_concepts(self) -> List[Dict[str, Any]]:
+        """Get all concepts in CLICS with their metadata"""
+        concepts = []
+        for node, data in self.graph.nodes(data=True):
+            gloss = data.get('Gloss')
+            if gloss:
+                # Extract all available metadata
+                concept_data = {
+                    'concept': gloss,
+                    'semantic_field': data.get('Semanticfield', ''),
+                    'category': data.get('Category', ''),
+                    'family_frequency': data.get('FamilyFrequency', 0),
+                    'language_frequency': data.get('LanguageFrequency', 0),
+                    'word_frequency': data.get('WordFrequency', 0),
+                    'frequency': sum(1 for edge in self.graph.edges(node, data=True)
+                                  if edge[2].get('wofam'))
+                }
+
+                concepts.append(concept_data)
+        
+        # Sort by frequency descending
+        concepts.sort(key=lambda x: x['frequency'], reverse=True)
+        return concepts
+    
+    def search_concepts(self, query: str) -> List[Dict[str, str]]:
+        """Search CLICS concepts matching a query string"""
+        query = query.upper()  # CLICS uses uppercase
+        matches = []
+        
+        for node, data in self.graph.nodes(data=True):
+            gloss = data.get('Gloss', '')
+            if not gloss:
+                continue
+                
+            if query in gloss.upper():
+                matches.append({
+                    'concept': gloss,
+                    'semantic_field': data.get('Semanticfield', ''),
+                    'category': data.get('Category', ''),
+                    'family_frequency': data.get('FamilyFrequency', 0),
+                    'language_frequency': data.get('LanguageFrequency', 0),
+                    'word_frequency': data.get('WordFrequency', 0),
+                    'frequency': sum(1 for edge in self.graph.edges(node, data=True)
+                                  if edge[2].get('wofam'))
+                })
+        
+        # Sort by frequency descending
+        matches.sort(key=lambda x: x['frequency'], reverse=True)
+        return matches

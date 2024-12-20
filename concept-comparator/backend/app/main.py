@@ -368,6 +368,38 @@ async def get_semantic_chains(
             status_code=500,
             detail=f"Error finding semantic chains: {str(e)}"
         )
+    
+@app.get("/search-clics-concepts/{query}")
+async def search_clics_concepts(query: str):
+    """Search CLICS concepts matching query string"""
+    try:
+        matches = clics_service.search_concepts(query)
+        return {
+            "matches": matches,
+            "total": len(matches)
+        }
+    except Exception as e:
+        logger.error(f"Error searching CLICS concepts: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error searching CLICS concepts: {str(e)}"
+        )
+
+@app.get("/clics-concepts")
+async def get_clics_concepts():
+    """Get all concepts in CLICS vocabulary"""
+    try:
+        concepts = clics_service.get_all_concepts()
+        return {
+            "concepts": concepts,
+            "total": len(concepts)
+        }
+    except Exception as e:
+        logger.error(f"Error getting CLICS concepts: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error getting CLICS concepts: {str(e)}"
+        )
 
 
 @app.get("/test-clics/{concept}")
@@ -385,5 +417,7 @@ async def test_clics(concept: str):
             status_code=500, 
             detail=f"CLICS test failed: {str(e)}"
         )
+    
+
     
     

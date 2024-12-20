@@ -50,7 +50,7 @@ const SharedEmbeddingsViz: React.FC<Props> = ({ results, className = "" }) => {
               dataKey="y" 
               domain={['auto', 'auto']}
               tick={false}  // Hide axis numbers
-              label={{ value: 'UMAP projection', angle: -90, position: 'left' }}
+              
             />
             <Tooltip content={<CustomTooltip />} />
             <ZAxis range={[60, 60]} />

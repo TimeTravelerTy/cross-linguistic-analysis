@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { WordSenseSelector } from './components/WordSenseSelector';
 import { ComparisonContainer } from './components/ComparisonContainer';
 import { LanguageSelector } from './components/LanguageSelector';
+import ConceptSearch from './components/ConceptSearch';
 import { apiClient } from './api/client';
 import { WordSense, ComparisonResult, Languages, ComparisonData } from './types';
 
@@ -12,18 +13,20 @@ function App() {
   const [selectedSense1, setSelectedSense1] = useState<WordSense | null>(null);
   const [selectedSense2, setSelectedSense2] = useState<WordSense | null>(null);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [concept1Mode, setConcept1Mode] = useState<'wordnet' | 'clics'>('wordnet');
+  const [concept2Mode, setConcept2Mode] = useState<'wordnet' | 'clics'>('wordnet');
 
   const { data: senses1, isLoading: loading1 } = useQuery<WordSense[]>({
     queryKey: ['wordSenses', concept1],
     queryFn: () => apiClient.getWordSenses(concept1),
-    enabled: concept1.length >= 3,
+    enabled: concept1.length >= 3 && concept1Mode === 'wordnet',
     staleTime: Infinity,
   });
 
   const { data: senses2, isLoading: loading2 } = useQuery<WordSense[]>({
     queryKey: ['wordSenses', concept2],
     queryFn: () => apiClient.getWordSenses(concept2),
-    enabled: concept2.length >= 3,
+    enabled: concept2.length >= 3 && concept2Mode === 'wordnet',
     staleTime: Infinity,
   });
 
@@ -48,13 +51,23 @@ function App() {
     }
   });
 
+  const canCompare = (
+    // WordNet mode requirements
+    ((concept1Mode === 'wordnet' && selectedSense1) || 
+     (concept1Mode === 'clics' && concept1)) &&
+    ((concept2Mode === 'wordnet' && selectedSense2) || 
+     (concept2Mode === 'clics' && concept2)) &&
+    selectedLanguages.length > 0 &&
+    !comparing
+  );
+
   const handleCompare = () => {
-    if (selectedSense1 && selectedSense2 && selectedLanguages.length > 0) {
+    if (canCompare) {
       compareWords({
         concept1,
-        sense_id1: selectedSense1.synset_id,
+        sense_id1: concept1Mode === 'wordnet' ? selectedSense1!.synset_id : concept1,
         concept2,
-        sense_id2: selectedSense2.synset_id,
+        sense_id2: concept2Mode === 'wordnet' ? selectedSense2!.synset_id : concept2,
         languages: selectedLanguages
       });
     }
@@ -80,27 +93,30 @@ function App() {
             {/* Concept 1 Container */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-6">
-                <input
-                  type="text"
+                <ConceptSearch
                   value={concept1}
-                  onChange={(e) => setConcept1(e.target.value)}
+                  onChange={setConcept1}
                   placeholder="Enter first concept"
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading1}
+                  mode={concept1Mode}
+                  onModeChange={setConcept1Mode}
                 />
               </div>
               <div className="border-t border-gray-200">
-                {loading1 ? (
-                  <div className="p-6 text-center text-gray-500">
-                    Loading word senses...
-                  </div>
-                ) : (
-                  senses1 && (
-                    <WordSenseSelector
-                      word={concept1}
-                      senses={senses1}
-                      selectedSense={selectedSense1}
-                      onSelect={setSelectedSense1}
-                    />
+                {concept1Mode === 'wordnet' && (
+                  loading1 ? (
+                    <div className="p-6 text-center text-gray-500">
+                      Loading word senses...
+                    </div>
+                  ) : (
+                    senses1 && (
+                      <WordSenseSelector
+                        word={concept1}
+                        senses={senses1}
+                        selectedSense={selectedSense1}
+                        onSelect={setSelectedSense1}
+                      />
+                    )
                   )
                 )}
               </div>
@@ -109,27 +125,30 @@ function App() {
             {/* Concept 2 Container */}
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-6">
-                <input
-                  type="text"
+                <ConceptSearch
                   value={concept2}
-                  onChange={(e) => setConcept2(e.target.value)}
+                  onChange={setConcept2}
                   placeholder="Enter second concept"
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading2}
+                  mode={concept2Mode}
+                  onModeChange={setConcept2Mode}
                 />
               </div>
               <div className="border-t border-gray-200">
-                {loading2 ? (
-                  <div className="p-6 text-center text-gray-500">
-                    Loading word senses...
-                  </div>
-                ) : (
-                  senses2 && (
-                    <WordSenseSelector
-                      word={concept2}
-                      senses={senses2}
-                      selectedSense={selectedSense2}
-                      onSelect={setSelectedSense2}
-                    />
+                {concept2Mode === 'wordnet' && (
+                  loading2 ? (
+                    <div className="p-6 text-center text-gray-500">
+                      Loading word senses...
+                    </div>
+                  ) : (
+                    senses2 && (
+                      <WordSenseSelector
+                        word={concept2}
+                        senses={senses2}
+                        selectedSense={selectedSense2}
+                        onSelect={setSelectedSense2}
+                      />
+                    )
                   )
                 )}
               </div>
@@ -154,9 +173,9 @@ function App() {
           <div className="text-center mb-8">
             <button
               onClick={handleCompare}
-              disabled={!selectedSense1 || !selectedSense2 || selectedLanguages.length === 0 || comparing}
+              disabled={!canCompare}
               className={`px-8 py-3 rounded-lg font-medium transition-colors
-                ${(!selectedSense1 || !selectedSense2 || selectedLanguages.length === 0 || comparing)
+                ${!canCompare
                   ? 'bg-gray-300 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
                 }`}
