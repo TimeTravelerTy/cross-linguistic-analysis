@@ -5,7 +5,7 @@ import { ComparisonContainer } from './components/ComparisonContainer';
 import { LanguageSelector } from './components/LanguageSelector';
 import ConceptSearch from './components/ConceptSearch';
 import { apiClient } from './api/client';
-import { WordSense, ComparisonResult, Languages, ComparisonData } from './types';
+import { WordSense, ComparisonResult, Languages, ComparisonData, ClicsMatch } from './types';
 
 function App() {
   const [concept1, setConcept1] = useState('');
@@ -28,6 +28,18 @@ function App() {
     queryFn: () => apiClient.getWordSenses(concept2),
     enabled: concept2.length >= 3 && concept2Mode === 'wordnet',
     staleTime: Infinity,
+  });
+
+  const { data: clicsMatches1 } = useQuery<{ matches: ClicsMatch[] }>({
+    queryKey: ['clics-concepts', concept1],
+    queryFn: () => apiClient.searchClicsConcepts(concept1),
+    enabled: concept1Mode === 'clics' && concept1.length >= 2,
+  });
+
+  const { data: clicsMatches2 } = useQuery<{ matches: ClicsMatch[] }>({
+    queryKey: ['clics-concepts', concept2],
+    queryFn: () => apiClient.searchClicsConcepts(concept2),
+    enabled: concept2Mode === 'clics' && concept2.length >= 2,
   });
 
   const { data: languages } = useQuery<Languages>({
@@ -61,13 +73,22 @@ function App() {
     !comparing
   );
 
+  const formatClicsSense = (match: ClicsMatch | undefined) => {
+    if (!match) return '';
+    return `SEMANTIC_FIELD:${match.semantic_field} CATEGORY:${match.category} ${match.concept}`;
+  };
+
   const handleCompare = () => {
     if (canCompare) {
       compareWords({
         concept1,
-        sense_id1: concept1Mode === 'wordnet' ? selectedSense1!.synset_id : concept1,
+        sense_id1: concept1Mode === 'wordnet' 
+          ? selectedSense1!.synset_id 
+          : formatClicsSense(clicsMatches1?.matches.find(m => m.concept === concept1)),
         concept2,
-        sense_id2: concept2Mode === 'wordnet' ? selectedSense2!.synset_id : concept2,
+        sense_id2: concept2Mode === 'wordnet' 
+          ? selectedSense2!.synset_id 
+          : formatClicsSense(clicsMatches2?.matches.find(m => m.concept === concept2)),
         languages: selectedLanguages
       });
     }

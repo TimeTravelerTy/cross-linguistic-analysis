@@ -18,6 +18,10 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
     }));
   };
 
+  const capitalize = (val : string) => {
+    return String(val).charAt(0).toUpperCase() + String(val).slice(1);
+  }
+
   // Get the first result to extract original concepts from family_colexifications
   const firstResult = Object.values(results)[0];
   // Concepts are now the keys in the language_colexifications object
@@ -26,7 +30,7 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
   return (
     <div className="space-y-6">
       {/* Shared Embedding Visualization */}
-      <SharedEmbeddingsViz results={results} />
+      <SharedEmbeddingsViz results={results} concepts={originalConcepts}/>
       {Object.entries(results).map(([langCode, result]) => (
         <div 
           key={langCode} 
@@ -44,11 +48,11 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-medium text-lg">
-                    {result.main_translations[0]}
+                    {capitalize(result.main_translations[0])}
                   </span>
                   <span className="text-gray-500">↔</span>
                   <span className="font-medium text-lg">
-                    {result.main_translations[1]}
+                    {capitalize(result.main_translations[1])}
                   </span>
                 </div>
                 

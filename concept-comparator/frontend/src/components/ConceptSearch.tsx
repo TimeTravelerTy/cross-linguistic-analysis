@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import { Check, Database } from 'lucide-react';
+import { ClicsMatch } from '../types';
 
 interface Props {
     value: string;
@@ -11,17 +12,6 @@ interface Props {
     mode: 'wordnet' | 'clics';
     onModeChange: (mode: 'wordnet' | 'clics') => void;
 }
-
-interface Match {
-    concept: string;
-    semantic_field: string;
-    category: string;
-    family_frequency: number;
-    language_frequency: number;
-    word_frequency: number;
-    frequency: number;
-}
-
 const ConceptSearch: React.FC<Props> = ({ 
     value, 
     onChange, 
@@ -102,7 +92,7 @@ const ConceptSearch: React.FC<Props> = ({
               <div className="p-6 text-center text-gray-500">No matching concepts found</div>
             ) : (
               <div className="space-y-2 p-4">
-                {clicsMatches?.matches.map((match : Match) => (
+                {clicsMatches?.matches.map((match : ClicsMatch) => (
                   <button
                     key={match.concept}
                     onClick={() => handleSelectConcept(match.concept)}

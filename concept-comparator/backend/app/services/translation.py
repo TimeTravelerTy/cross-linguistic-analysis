@@ -11,19 +11,22 @@ class TranslationService:
 
     def get_translation(self, word: str, sense_definition: str, target_lang: str) -> Translation:
         cache_key = f"{word}_{sense_definition}_{target_lang}"
+        print(f"Transalting: {cache_key}...")
         if cache_key in self.cached_translations:
             return self.cached_translations[cache_key]
+        
+        word = word.title() if (word.isupper() or word.islower()) else word
             
         system_prompt = """You are a linguistic expert specializing in semantic analysis and translation. 
         Your task is to provide precise translations capturing semantic distinctions that are grammatically 
         or culturally mandatory in the target language. Only provide variations when the target language 
-        requires different words based on context, physical properties, social relationships, or other 
+        requires different words based on context, nuance, physical properties, social relationships, or other 
         factors to further specify its sense. Otherwise return an empty list."""
         
         user_prompt = f"""Translate the following word into {target_lang}, noting only variations that are 
-        required by the language's grammar or usage rules:
+        required by the language's usage rules:
         Word: {word}
-        Definition: {sense_definition}"""
+        Specifics: {sense_definition}"""
         
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini", 

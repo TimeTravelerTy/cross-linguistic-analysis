@@ -13,13 +13,14 @@ class EmbeddingService:
             print(f"Error initializing embedding model: {str(e)}")
             raise
 
-    def get_embedding(self, text: str, lang: str) -> np.ndarray:
+    def get_embedding(self, text: str, lang_name: str, meaning: str) -> np.ndarray:
         """Get embedding for a text in a specific language"""
         try:
-            cache_key = f"{lang}_{text}"
+            cache_key = f"{lang_name}_{text}"
             if cache_key not in self.cached_embeddings:
                 # Convert to numpy array explicitly
-                embedding = self.model.encode(text)
+                print(f"Getting embedding for {text} ({lang_name}, meaning '{meaning}')")
+                embedding = self.model.encode(f"{text} ({lang_name}, meaning '{meaning}')")
                 if isinstance(embedding, torch.Tensor):
                     embedding = embedding.cpu().numpy()
                 elif not isinstance(embedding, np.ndarray):
@@ -29,7 +30,7 @@ class EmbeddingService:
                 
             return self.cached_embeddings[cache_key]
         except Exception as e:
-            print(f"Error getting embedding for text '{text}' in {lang}: {str(e)}")
+            print(f"Error getting embedding for text '{text}' in {lang_name}: {str(e)}")
             raise
 
     def compute_similarity(self, emb1: np.ndarray, emb2: np.ndarray) -> float:

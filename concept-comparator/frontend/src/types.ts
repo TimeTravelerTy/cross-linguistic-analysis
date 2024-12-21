@@ -60,6 +60,16 @@ export interface ComparisonResult {
   family_colexifications: Record<string, FamilyColexifications>;
 }
 
+export interface ClicsMatch {
+  concept: string;
+  semantic_field: string;
+  category: string;
+  family_frequency: number;
+  language_frequency: number;
+  word_frequency: number;
+  frequency: number;
+}
+
 export interface ApiResponse<T> {
 data: T;
 }

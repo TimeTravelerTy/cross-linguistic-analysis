@@ -7,9 +7,10 @@ import { ComparisonResult } from '../types';
 interface Props {
   results: Record<string, ComparisonResult>;
   className?: string;
+  concepts: string[];
 }
 
-const SharedEmbeddingsViz: React.FC<Props> = ({ results, className = "" }) => {
+const SharedEmbeddingsViz: React.FC<Props> = ({ results, className = "", concepts }) => {
   // Project embeddings to 2D
   const points = useMemo(() => projectEmbeddings(results), [results]);
 
@@ -70,11 +71,11 @@ const SharedEmbeddingsViz: React.FC<Props> = ({ results, className = "" }) => {
       <div className="flex justify-center gap-6 mt-4">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-blue-500" />
-          <span className="text-sm text-gray-600">Concept 1</span>
+          <span className="text-sm text-gray-600">{concepts[0]}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-emerald-500" />
-          <span className="text-sm text-gray-600">Concept 2</span>
+          <span className="text-sm text-gray-600">{concepts[1]}</span>
         </div>
       </div>
     </div>

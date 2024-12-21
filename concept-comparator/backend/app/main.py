@@ -245,8 +245,8 @@ async def compare_concepts(request: ComparisonRequest):
                 print(f"Translation 2: {trans2}")
                 
                 # Get embeddings
-                emb1 = embedding_service.get_embedding(trans1.main_translation, lang)
-                emb2 = embedding_service.get_embedding(trans2.main_translation, lang)
+                emb1 = embedding_service.get_embedding(trans1.main_translation, lang_name, request.concept1)
+                emb2 = embedding_service.get_embedding(trans2.main_translation, lang_name, request.concept2)
                 
                 # Calculate similarity
                 main_similarity = embedding_service.compute_similarity(emb1, emb2)
@@ -258,8 +258,8 @@ async def compare_concepts(request: ComparisonRequest):
                 if trans1.variations:
                     # Compare trans1 variations with trans2 main translation
                     for var1 in trans1.variations:
-                        var_emb1 = embedding_service.get_embedding(var1.word, lang)
-                        emb2 = embedding_service.get_embedding(trans2.main_translation, lang)
+                        var_emb1 = embedding_service.get_embedding(var1.word, lang_name, request.concept1)
+                        emb2 = embedding_service.get_embedding(trans2.main_translation, lang_name, request.concept2)
                         sim = embedding_service.compute_similarity(var_emb1, emb2)
                         variation_similarities.append({
                             "similarity": float(sim),
@@ -270,7 +270,7 @@ async def compare_concepts(request: ComparisonRequest):
                         # If trans2 has variations, compare with those too
                         if trans2.variations:
                             for var2 in trans2.variations:
-                                var_emb2 = embedding_service.get_embedding(var2.word, lang)
+                                var_emb2 = embedding_service.get_embedding(var2.word, lang_name, request.concept2)
                                 sim = embedding_service.compute_similarity(var_emb1, var_emb2)
                                 variation_similarities.append({
                                     "similarity": float(sim),
@@ -282,8 +282,8 @@ async def compare_concepts(request: ComparisonRequest):
                 if trans2.variations:
                     # Compare trans2 variations with trans1 main translation
                     for var2 in trans2.variations:
-                        var_emb2 = embedding_service.get_embedding(var2.word, lang)
-                        emb1 = embedding_service.get_embedding(trans1.main_translation, lang)
+                        var_emb2 = embedding_service.get_embedding(var2.word, lang_name, request.concept2)
+                        emb1 = embedding_service.get_embedding(trans1.main_translation, lang_name, request.concept1)
                         sim = embedding_service.compute_similarity(emb1, var_emb2)
                         variation_similarities.append({
                             "similarity": float(sim),
