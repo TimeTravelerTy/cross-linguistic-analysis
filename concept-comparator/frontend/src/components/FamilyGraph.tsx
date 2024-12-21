@@ -3,7 +3,7 @@ import { Network, Edge as VisEdge, Node as VisNode, Options } from 'vis-network'
 import { DataSet } from 'vis-data';
 import { FamilyColexifications } from '../types';
 import { useSemanticChains } from '../hooks/useSemanticChains';
-import { SemanticChainGraph } from './SemanticChainGraph'
+import SemanticChainList from './SemanticChainList'
 import 'vis-network/dist/dist/vis-network.css';
 
 interface FamilyGraphProps {
@@ -249,7 +249,7 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
                   <div className="mb-2 text-sm text-gray-600">
                     Found {chainData.chains.length} semantic chain{chainData.chains.length > 1 ? 's' : ''}
                   </div>
-                  <SemanticChainGraph chains={chainData.chains} />
+                  <SemanticChainList chains={chainData.chains} />
                 </>
               ) : (
                 <div className="text-sm text-gray-500 text-center py-4">

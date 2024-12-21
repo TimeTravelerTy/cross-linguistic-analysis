@@ -11,12 +11,31 @@ import {
 } from 'recharts';
 import { ComparisonResult, Languages, FamilyColexifications } from '../types';
 import { FamilyGraph } from './FamilyGraph';
+import { useSemanticChains } from '../hooks/useSemanticChains';
 
 interface FamilyComparisonViewProps {
   results: Record<string, ComparisonResult>;
   languages: Languages;
   originalConcepts: [string, string]; 
 }
+
+const calculateEnhancedColexScore = (directScore: number, chains: any[] = []) => {
+  if (!chains?.length) return directScore;
+  
+  // Start with direct colexification score
+  let totalScore = directScore;
+  
+  // Add weighted chain scores with exponential decay based on path length
+  chains.forEach(chain => {
+    const chainLength = chain.path.length - 1; // Number of steps
+    const baseWeight = Math.pow(0.8, chainLength - 1); // Exponential decay for longer paths
+    const chainScore = chain.total_score * baseWeight;
+    totalScore += chainScore;
+  });
+  
+  // Cap at 1.0 and ensure non-negative
+  return Math.min(Math.max(totalScore, 0), 1.0);
+};
 
 export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({ 
   results, 
@@ -66,7 +85,7 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Embedding Similarities Chart - remains the same */}
+      {/* Embedding Similarities */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Semantic Similarity by Family
@@ -150,12 +169,25 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Object.entries(familyResults).map(([family, data]) => {
+            // Get semantic chains for this family
+            const { data: chainData } = useSemanticChains(
+              originalConcepts[0],
+              originalConcepts[1],
+              family
+            );
+            
             const avgEmbeddingSim = data.embeddings.reduce(
               (sum, curr) => sum + curr.similarity, 0
-            ) / data.embeddings.length;
+            ) / data.embeddings.length / 100; // Normalize to 0-1
             
-            const colexRate = data.family_colexifications?.direct_colexification.frequency / 
-              (data.family_colexifications?.total_languages || 1) || 0;
+            const directColexRate = data.family_colexifications?.direct_colexification.frequency / 
+              (data.family_colexifications?.total_languages || 1);
+              
+            // Calculate enhanced colexical score including chains
+            const enhancedColexScore = calculateEnhancedColexScore(
+              directColexRate,
+              chainData?.chains
+            );
             
             return (
               <div 
@@ -169,31 +201,53 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
                       Embedding Similarity
                     </span>
                     <span className="font-medium text-blue-600">
-                      {avgEmbeddingSim.toFixed(1)}%
+                      {(avgEmbeddingSim * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">
-                      Historical Colexification
+                      Direct Colexification
                     </span>
-                    <span className="font-medium text-green-600">
-                      {(colexRate * 100).toFixed(1)}%
+                    <span className="font-medium text-emerald-600">
+                      {(directColexRate * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">
+                      Enhanced Colexical Score
+                    </span>
+                    <span className="font-medium text-violet-600">
+                      {(enhancedColexScore * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="relative pt-1">
+                    {/* Embedding similarity bar */}
                     <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
                       <div
-                        style={{ width: `${avgEmbeddingSim}%` }}
+                        style={{ width: `${avgEmbeddingSim * 100}%` }}
                         className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
                       />
                     </div>
+                    {/* Direct colexification bar */}
                     <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100 mt-1">
                       <div
-                        style={{ width: `${colexRate * 100}%` }}
-                        className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"
+                        style={{ width: `${directColexRate * 100}%` }}
+                        className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-emerald-500"
+                      />
+                    </div>
+                    {/* Enhanced colexical score bar */}
+                    <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100 mt-1">
+                      <div
+                        style={{ width: `${enhancedColexScore * 100}%` }}
+                        className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-violet-500"
                       />
                     </div>
                   </div>
+                  {chainData?.chains && chainData.chains.length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Including {chainData.chains.length} semantic chains
+                    </div>
+                  )}
                 </div>
               </div>
             );

@@ -147,12 +147,24 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
 
             {/* Colexification Graph Section */}
             {originalConcepts.length >= 2 && (
-              <ColexificationGraph
-              concept1={originalConcepts[0]}
-              concept2={originalConcepts[1]}
-              colexifications={result.language_colexifications}
-              className="mt-4"
-            />
+              (() => {
+                // Check if there are any colexifications to display
+                const hasColexifications = Object.values(result.language_colexifications).some(
+                  colexList => colexList.some(colex => colex.present)
+                );
+
+                return hasColexifications ? (
+                  <>
+                    <h3 className="text-lg font-semibold">Colexifications</h3>
+                    <ColexificationGraph
+                      concept1={originalConcepts[0]}
+                      concept2={originalConcepts[1]}
+                      colexifications={result.language_colexifications}
+                      className="mt-1"
+                    />
+                  </>
+                ) : null;
+              })()
             )}
           </div>
         </div>

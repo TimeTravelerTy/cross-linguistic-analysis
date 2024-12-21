@@ -95,15 +95,15 @@ SUPPORTED_LANGUAGES = {
     'sqi': {'name': 'Albanian', 'family': 'Indo-European', 'subfamily': 'Albanian'},
     
     # Afroasiatic
-    'ara': {'name': 'Arabic', 'family': 'Afroasiatic', 'subfamily': 'Semitic'},
-    'heb': {'name': 'Hebrew', 'family': 'Afroasiatic', 'subfamily': 'Semitic'},
-    'amh': {'name': 'Amharic', 'family': 'Afroasiatic', 'subfamily': 'Semitic'},
-    'mlt': {'name': 'Maltese', 'family': 'Afroasiatic', 'subfamily': 'Semitic'},
-    'hau': {'name': 'Hausa', 'family': 'Afroasiatic', 'subfamily': 'Chadic'},
-    'som': {'name': 'Somali', 'family': 'Afroasiatic', 'subfamily': 'Cushitic'},
+    'ara': {'name': 'Arabic', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
+    'heb': {'name': 'Hebrew', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
+    'amh': {'name': 'Amharic', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
+    'mlt': {'name': 'Maltese', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
+    'hau': {'name': 'Hausa', 'family': 'Afro-Asiatic', 'subfamily': 'Chadic'},
+    'som': {'name': 'Somali', 'family': 'Afro-Asiatic', 'subfamily': 'Cushitic'},
     
     # Sino-Tibetan
-    'zho': {'name': 'Chinese', 'family': 'Sino-Tibetan', 'subfamily': 'Sinitic'},
+    'zho': {'name': 'Mandarin Chinese', 'family': 'Sino-Tibetan', 'subfamily': 'Sinitic'},
     'yue': {'name': 'Cantonese', 'family': 'Sino-Tibetan', 'subfamily': 'Sinitic'},
     'bod': {'name': 'Tibetan', 'family': 'Sino-Tibetan', 'subfamily': 'Tibetic'},
     
