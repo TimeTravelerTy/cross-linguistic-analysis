@@ -70,6 +70,15 @@ export interface ClicsMatch {
   frequency: number;
 }
 
+export interface StoredComparison {
+  concepts: [string, string];
+  family: string;
+  avgEmbeddingSim: number;
+  directColexRate: number;
+  enhancedColexScore: number;
+  timestamp: number;
+}
+
 export interface ApiResponse<T> {
 data: T;
 }

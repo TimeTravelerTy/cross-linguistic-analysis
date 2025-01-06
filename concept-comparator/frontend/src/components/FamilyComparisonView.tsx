@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -12,6 +12,7 @@ import {
 import { ComparisonResult, Languages, FamilyColexifications } from '../types';
 import { FamilyGraph } from './FamilyGraph';
 import { useSemanticChains } from '../hooks/useSemanticChains';
+import CorrelationAnalysis from './CorrelationAnalysis';
 
 interface FamilyComparisonViewProps {
   results: Record<string, ComparisonResult>;
@@ -42,6 +43,14 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
   languages, 
   originalConcepts
 }) => {
+  const [prevResults, setPrevResults] = useState({});
+
+  useEffect(() => {
+    if (Object.keys(results).length > 0) {
+      setPrevResults(results);
+    }
+  }, [results]);
+
   const familyResults = useMemo(() => {
     const grouped: Record<string, {
       embeddings: Array<{ language: string; similarity: number; variations: any[] }>;
@@ -77,11 +86,11 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
     return grouped;
   }, [results, languages]);
 
-
   const chartData = Object.entries(familyResults).map(([family, data]) => ({
     name: family,
     similarity: data.embeddings.reduce((sum, curr) => sum + curr.similarity, 0) / data.embeddings.length
   }));
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -140,7 +149,7 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
         </div>
       </div>
 
-      {/* Family Pattern Graphs Section */}
+      {/* Family Pattern Graphs */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Family Pattern Analysis
@@ -162,14 +171,13 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
         </div>
       </div>
 
-      {/* Similarity Correlation Analysis */}
-      <div className="bg-white rounded-xl shadow-sm p-6 lg:col-span-2">
+      {/* Family Metrics Comparison */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Computational vs Colexical Similarity
+          Current Family Metrics
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           {Object.entries(familyResults).map(([family, data]) => {
-            // Get semantic chains for this family
             const { data: chainData } = useSemanticChains(
               originalConcepts[0],
               originalConcepts[1],
@@ -178,12 +186,11 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
             
             const avgEmbeddingSim = data.embeddings.reduce(
               (sum, curr) => sum + curr.similarity, 0
-            ) / data.embeddings.length / 100; // Normalize to 0-1
+            ) / data.embeddings.length / 100;
             
             const directColexRate = data.family_colexifications?.direct_colexification.frequency / 
               (data.family_colexifications?.total_languages || 1);
               
-            // Calculate enhanced colexical score including chains
             const enhancedColexScore = calculateEnhancedColexScore(
               directColexRate,
               chainData?.chains
@@ -221,21 +228,18 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
                     </span>
                   </div>
                   <div className="relative pt-1">
-                    {/* Embedding similarity bar */}
                     <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
                       <div
                         style={{ width: `${avgEmbeddingSim * 100}%` }}
                         className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
                       />
                     </div>
-                    {/* Direct colexification bar */}
                     <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100 mt-1">
                       <div
                         style={{ width: `${directColexRate * 100}%` }}
                         className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-emerald-500"
                       />
                     </div>
-                    {/* Enhanced colexical score bar */}
                     <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100 mt-1">
                       <div
                         style={{ width: `${enhancedColexScore * 100}%` }}
@@ -253,6 +257,40 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* Correlation Analysis */}
+      <div className="lg:col-span-2">
+        <CorrelationAnalysis
+          currentConcepts={originalConcepts}
+          currentData={{
+            embeddings: Object.fromEntries(
+              Object.entries(familyResults).map(([family, data]) => [
+                family,
+                data.embeddings.reduce((sum, curr) => sum + curr.similarity, 0) / 
+                data.embeddings.length / 100
+              ])
+            ),
+            colexifications: Object.fromEntries(
+              Object.entries(familyResults).map(([family, data]) => {
+                const { data: chainData } = useSemanticChains(
+                  originalConcepts[0],
+                  originalConcepts[1],
+                  family
+                );
+                
+                const directColexRate = data.family_colexifications?.direct_colexification.frequency / 
+                  (data.family_colexifications?.total_languages || 1);
+                
+                return [
+                  family,
+                  calculateEnhancedColexScore(directColexRate, chainData?.chains)
+                ];
+              })
+            )
+          }}
+          shouldStore={Object.keys(results).length > 0 && JSON.stringify(prevResults) !== JSON.stringify(results)}
+        />
       </div>
     </div>
   );
