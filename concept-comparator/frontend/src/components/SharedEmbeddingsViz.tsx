@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, ZAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { getLanguageName } from '../constants/languages';
 import { projectEmbeddings, ProjectedPoint } from '../utils/embedding';
+import InfoTooltip from './InfoTooltip';
 import { ComparisonResult } from '../types';
 
 interface Props {
@@ -34,7 +35,18 @@ const SharedEmbeddingsViz: React.FC<Props> = ({ results, className = "", concept
 
   return (
     <div className={`bg-white rounded-lg p-6 ${className}`}>
-      <h3 className="text-lg font-semibold mb-4">Semantic Space</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Semantic Space</h3>
+        <InfoTooltip 
+          content={
+        <div className="space-y-2">
+          <p>2D visualization of how translations cluster in semantic space, using UMAP dimensionality reduction on LaBSE embeddings.</p>
+          <p>Points closer together represent translations that are used in similar contexts across languages.</p>
+          <p className="text-xs mt-1">Note: This is an approximation - distances in 2D don't exactly match the true semantic similarities.</p>
+        </div>
+          }
+        />
+      </div>
       <div className="h-[500px]">
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>

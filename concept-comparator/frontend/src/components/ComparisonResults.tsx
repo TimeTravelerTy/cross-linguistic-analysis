@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { getLanguageName } from '../constants/languages';
 import { ColexificationGraph } from './ColexificationGraph';
 import SharedEmbeddingsViz from './SharedEmbeddingsViz';
+import InfoTooltip from './InfoTooltip';
 import { ComparisonResult } from '../types';
 
 interface ComparisonResultsProps {
@@ -57,19 +58,23 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <div 
-                    className="text-sm font-medium px-2 py-1 rounded"
-                    style={{
-                      backgroundColor: `rgba(${
-                        Math.round(255 * (1 - result.main_similarity))
-                      }, ${
-                        Math.round(255 * result.main_similarity)
-                      }, 0, 0.2)`,
-                      color: result.main_similarity > 0.5 ? '#166534' : '#991B1B'
-                    }}
+                  <InfoTooltip 
+                    content="Similarity score based on LaBSE embeddings comparing translations in their full language context"
+                    showIcon={false}
                   >
-                    Similarity: {(result.main_similarity * 100).toFixed(1)}%
-                  </div>
+                    <div className="text-sm font-medium px-2 py-1 rounded cursor-help"
+                      style={{
+                        backgroundColor: `rgba(${
+                          Math.round(255 * (1 - result.main_similarity))
+                        }, ${
+                          Math.round(255 * result.main_similarity)
+                        }, 0, 0.2)`,
+                        color: result.main_similarity > 0.5 ? '#166534' : '#991B1B'
+                      }}
+                    >
+                      Similarity: {(result.main_similarity * 100).toFixed(1)}%
+                    </div>
+                  </InfoTooltip>
                 </div>
 
                 {/* Usage notes */}

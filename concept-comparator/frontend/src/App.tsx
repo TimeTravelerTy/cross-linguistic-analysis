@@ -4,6 +4,7 @@ import { WordSenseSelector } from './components/WordSenseSelector';
 import { ComparisonContainer } from './components/ComparisonContainer';
 import { LanguageSelector } from './components/LanguageSelector';
 import ConceptSearch from './components/ConceptSearch';
+import InfoPanel from './components/InformationPanel';
 import { apiClient } from './api/client';
 import { WordSense, ComparisonResult, Languages, ComparisonData, ClicsMatch } from './types';
 
@@ -106,6 +107,9 @@ function App() {
             Compare how different languages express and relate concepts
           </p>
         </div>
+
+        {/* Info Panel*/}
+        <InfoPanel className="mb-8" />
 
         {/* Main content area */}
         <div className="max-w-6xl mx-auto">

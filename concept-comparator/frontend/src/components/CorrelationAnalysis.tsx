@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label } from 'recharts';
 import _ from 'lodash';
+import InfoTooltip from './InfoTooltip';
 
 interface StoredComparison {
   concepts: [string, string];
@@ -131,7 +132,7 @@ const CorrelationAnalysis: React.FC<Props> = ({
             Embedding Similarity: {(point.embeddingSim * 100).toFixed(1)}%
           </div>
           <div>
-            Enhanced Colex Score: {(point.colexScore * 100).toFixed(1)}%
+            Total Colexical Score: {(point.colexScore * 100).toFixed(1)}%
           </div>
           <div className="text-gray-500 text-xs mt-2">
             {point.activeFamilies} families with colexification
@@ -156,18 +157,25 @@ const CorrelationAnalysis: React.FC<Props> = ({
     <div className={`bg-white rounded-lg p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <div>
-            <h3 className="text-lg font-medium text-gray-900">
-            Computational vs. Colexical Correlation
-            </h3>
+            <InfoTooltip content="Analysis of how computational similarity scores (from embeddings) correlate with linguistic patterns (from colexifications)">
+                <h3 className="text-lg font-medium text-gray-900">
+                Computational vs. Colexical Correlation
+                </h3>
+            </InfoTooltip>
             <p className="text-sm text-gray-500 mt-1">
-            Only including families with non-zero colexification patterns
+                Only including families with non-zero colexification patterns
             </p>
         </div>
         <div className="flex items-center gap-3">
             {correlation !== null && (
-            <div className="text-sm font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-700">
-                r = {correlation.toFixed(3)}
-            </div>
+                <InfoTooltip 
+                content="Pearson correlation coefficient between embedding similarities and colexification scores"
+                showIcon={false}
+                >
+                <div className="text-sm font-medium px-3 py-1 rounded-full bg-blue-50 text-blue-700 cursor-help">
+                    r = {correlation.toFixed(3)}
+                </div>
+                </InfoTooltip>
             )}
             <button
             onClick={() => {
@@ -204,7 +212,7 @@ const CorrelationAnalysis: React.FC<Props> = ({
               tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
             >
               <Label 
-                value="Enhanced Colex Score" 
+                value="Total Colexical Score" 
                 angle={-90} 
                 position="left" 
                 offset={20}

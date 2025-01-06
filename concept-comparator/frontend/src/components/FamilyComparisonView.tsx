@@ -12,6 +12,7 @@ import {
 import { ComparisonResult, Languages, FamilyColexifications } from '../types';
 import { FamilyGraph } from './FamilyGraph';
 import { useSemanticChains } from '../hooks/useSemanticChains';
+import InfoTooltip from './InfoTooltip';
 import CorrelationAnalysis from './CorrelationAnalysis';
 
 interface FamilyComparisonViewProps {
@@ -128,6 +129,9 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
                   position: 'insideLeft',
                   style: { textAnchor: 'middle' }
                 }}
+                tickFormatter={(value) => `${Math.min(100, Math.round(value))}`}
+                allowDecimals={false}
+                tickCount={6}
               />
               <Tooltip 
                 formatter={(value: number) => `${value.toFixed(1)}%`}
@@ -204,25 +208,45 @@ export const FamilyComparisonView: React.FC<FamilyComparisonViewProps> = ({
                 <h4 className="font-medium mb-3 text-gray-900">{family}</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
+                    <InfoTooltip 
+                      content="Average semantic similarity based on LaBSE embeddings across all languages in this family"
+                      className="text-sm text-gray-600"
+                    >
                       Embedding Similarity
-                    </span>
+                    </InfoTooltip>
                     <span className="font-medium text-blue-600">
                       {(avgEmbeddingSim * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
+                    <InfoTooltip 
+                      content="Percentage of languages in this family that use the same word for both concepts"
+                      className="text-sm text-gray-600"
+                    >
                       Direct Colexification
-                    </span>
+                    </InfoTooltip>
                     <span className="font-medium text-emerald-600">
                       {(directColexRate * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Enhanced Colexical Score
-                    </span>
+                    <InfoTooltip 
+                      content={
+                        <div className="space-y-2">
+                          <p>Combined score that includes both direct and indirect semantic connections:</p>
+                          <ul className="list-disc pl-4 space-y-1">
+                            <li>Starts with direct colexification score (D)</li>
+                            <li>Adds weighted contributions from semantic chains (C)</li>
+                            <li>Chain weights decay exponentially with length (0.8^(length-1))</li>
+                            <li>Formula: Score = D + Σ(C × 0.8^(length-1))</li>
+                          </ul>
+                          <p className="text-xs">Example: A chain A→B→C of strength 0.6 contributes 0.6 × 0.8 = 0.48</p>
+                        </div>
+                      }
+                      className="text-sm text-gray-600"
+                    >
+                      Total Colexical Score
+                    </InfoTooltip>
                     <span className="font-medium text-violet-600">
                       {(enhancedColexScore * 100).toFixed(1)}%
                     </span>

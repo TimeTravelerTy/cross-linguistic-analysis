@@ -4,6 +4,7 @@ import { DataSet } from 'vis-data';
 import { FamilyColexifications } from '../types';
 import { useSemanticChains } from '../hooks/useSemanticChains';
 import SemanticChainList from './SemanticChainList'
+import InfoTooltip from './InfoTooltip';
 import 'vis-network/dist/dist/vis-network.css';
 
 interface FamilyGraphProps {
@@ -70,75 +71,80 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
     const edgesArray: Edge[] = [];
     const addedNodes = new Set([concept1.toLowerCase(), concept2.toLowerCase()]);
 
-    // Process colexifications for concept1
+    // First, collect all unique colexifications and their connections
+    const colexMap: Record<string, {
+      nodeId?: number;
+      concept1Data?: { frequency: number; languages: string[] };
+      concept2Data?: { frequency: number; languages: string[] };
+    }> = {};
+
+    // Map concept1 colexifications
     Object.entries(familyData.concept1_colexifications).forEach(([concept, data]) => {
-      if (addedNodes.has(concept.toLowerCase())) return;
-
-      nodesArray.push({
-        id: nodeId,
-        label: concept,
-        color: '#e5e7eb',
-        level: 2
-      });
-
-      const frequency = data.frequency / familyData.total_languages;
-      const frequencyPercent = (frequency * 100).toFixed(1);
-
-      edgesArray.push({
-        from: 1,
-        to: nodeId,
-        width: Math.max(1, frequency * 5),
-        color: '#cbd5e1',
-        title: `${frequencyPercent}% (${data.frequency}/${familyData.total_languages} languages)`,
-        frequency
-      });
-
-      addedNodes.add(concept.toLowerCase());
-      nodeId++;
+      const lowerConcept = concept.toLowerCase();
+      if (!colexMap[lowerConcept]) {
+        colexMap[lowerConcept] = {};
+      }
+      colexMap[lowerConcept].concept1Data = data;
     });
 
-    // Process colexifications for concept2
+    // Map concept2 colexifications
     Object.entries(familyData.concept2_colexifications).forEach(([concept, data]) => {
-      if (addedNodes.has(concept.toLowerCase())) return;
-
-      nodesArray.push({
-        id: nodeId,
-        label: concept,
-        color: '#e5e7eb',
-        level: 2
-      });
-
-      const frequency = data.frequency / familyData.total_languages;
-      const frequencyPercent = (frequency * 100).toFixed(1);
-
-      edgesArray.push({
-        from: 2,
-        to: nodeId,
-        width: Math.max(1, frequency * 5),
-        color: '#cbd5e1',
-        title: `${frequencyPercent}% (${data.frequency}/${familyData.total_languages} languages)`,
-        frequency
-      });
-
-      addedNodes.add(concept.toLowerCase());
-      nodeId++;
+      const lowerConcept = concept.toLowerCase();
+      if (!colexMap[lowerConcept]) {
+        colexMap[lowerConcept] = {};
+      }
+      colexMap[lowerConcept].concept2Data = data;
     });
 
-    // Add direct colexification edge
-    if (familyData.direct_colexification.frequency > 0) {
-      const frequency = familyData.direct_colexification.frequency / familyData.total_languages;
-      const frequencyPercent = (frequency * 100).toFixed(1);
-      
-      edgesArray.push({
-        id: '1-2',
-        from: 1,
-        to: 2,
-        width: Math.max(2, frequency * 5),
-        color: '#93c5fd',
-        title: `Direct colexification: ${frequencyPercent}% (${familyData.direct_colexification.frequency}/${familyData.total_languages} languages)`,
-        frequency
-      });
-    }
+    // Create nodes and edges for all colexifications
+    Object.entries(colexMap).forEach(([conceptLower, data]) => {
+      if (!addedNodes.has(conceptLower)) {
+        // Add node
+        const currentNodeId = nodeId++;
+        nodesArray.push({
+          id: currentNodeId,
+          label: Object.keys(familyData.concept1_colexifications)
+            .find(c => c.toLowerCase() === conceptLower) ||
+            Object.keys(familyData.concept2_colexifications)
+            .find(c => c.toLowerCase() === conceptLower) ||
+            conceptLower,
+          // Use a different color if it's connected to both concepts
+          color: data.concept1Data && data.concept2Data ? '#fde68a' : '#e5e7eb',
+          level: 2
+        });
+        
+        // Store nodeId for edge creation
+        colexMap[conceptLower].nodeId = currentNodeId;
+        addedNodes.add(conceptLower);
+
+        // Add edges if they exist
+        if (data.concept1Data) {
+          const frequency1 = data.concept1Data.frequency / familyData.total_languages;
+          const frequencyPercent1 = (frequency1 * 100).toFixed(1);
+          edgesArray.push({
+            from: 1,
+            to: currentNodeId,
+            width: Math.max(1, frequency1 * 5),
+            color: '#cbd5e1',
+            title: `${frequencyPercent1}% (${data.concept1Data.frequency}/${familyData.total_languages} languages)`,
+            frequency: frequency1
+          });
+        }
+
+        if (data.concept2Data) {
+          const frequency2 = data.concept2Data.frequency / familyData.total_languages;
+          const frequencyPercent2 = (frequency2 * 100).toFixed(1);
+          edgesArray.push({
+            from: 2,
+            to: currentNodeId,
+            width: Math.max(1, frequency2 * 5),
+            color: '#cbd5e1',
+            title: `${frequencyPercent2}% (${data.concept2Data.frequency}/${familyData.total_languages} languages)`,
+            frequency: frequency2
+          });
+        }
+      }
+    });
 
     const nodes = new DataSet<Node>(nodesArray);
     const edges = new DataSet<Edge>(edgesArray);
@@ -224,23 +230,41 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
 
       {/* Semantic Chains Section */}
       {enableChains && (
-        <div className="mt-4">
-          <button
-            onClick={handleShowChains}
-            className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors
-              ${chainsLoading 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-              }`}
-            disabled={chainsLoading}
-          >
-            {chainsLoading 
-              ? 'Loading chains...' 
-              : showChains 
-                ? 'Hide Semantic Chains' 
-                : 'Show Semantic Chains'
+      <div className="mt-4">
+        <div className="flex items-center gap-2 mb-2">
+          <h4 className="text-sm font-medium text-gray-900">Semantic Chains</h4>
+          <InfoTooltip 
+            content={
+              <div className="space-y-2">
+                <p>Semantic chains show indirect connections between concepts through shared meanings, limited to 4 steps.</p>
+                <p>Example: WEATHER→SKY→GOD shows how concepts link through intermediate meanings.</p>
+                <div className="mt-3">
+                  <p className="font-medium">Chain Strength</p>
+                  <p>Each link's strength is the % of languages in the family showing that connection.</p>
+                  <p className="text-xs mt-1">Example: If 8/10 languages connect WEATHER→SKY and 6/10 connect SKY→GOD, 
+                    chain strength would be the geometric mean: √(0.8 × 0.6) = 69%</p>
+                </div>
+              </div>
             }
-          </button>
+          />
+        </div>
+
+        <button
+          onClick={handleShowChains}
+          className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors
+            ${chainsLoading 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+            }`}
+          disabled={chainsLoading}
+        >
+          {chainsLoading 
+            ? 'Loading chains...' 
+            : showChains 
+              ? 'Hide Semantic Chains' 
+              : 'Show Semantic Chains'
+          }
+        </button>
 
           {showChains && chainData?.chains && (
             <div className="mt-4">
