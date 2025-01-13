@@ -70,10 +70,6 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
         grouped[area].languages.push(langCode);
         grouped[area].colexifications.totalLanguages++;
       
-        // Debug logging
-        console.log(`\nProcessing ${langCode} in ${area}:`);
-        console.log('Language colexifications:', result.language_colexifications);
-      
         const concept1Colexs = new Set(
           result.language_colexifications[originalConcepts[0]]
             .filter(colex => colex.present)
@@ -156,6 +152,32 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
     similarity: data.embeddings.reduce((sum, curr) => sum + curr.similarity, 0) / data.embeddings.length
   }));
 
+  const hasColexifications = (data: AreaData): boolean => {
+    const { colexifications } = data;
+    
+    // Check if there's direct colexification
+    if (colexifications.direct_colexification.frequency > 0) {
+      return true;
+    }
+    
+    // Check if there are any concept1 colexifications
+    if (Object.keys(colexifications.concept1_colexifications).length > 0) {
+      return true;
+    }
+    
+    // Check if there are any concept2 colexifications
+    if (Object.keys(colexifications.concept2_colexifications).length > 0) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Filter areas to only those with colexifications
+  const areasWithColexifications = Object.entries(areaResults).filter(
+    ([_, data]) => hasColexifications(data)
+  );
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Chart section remains the same */}
@@ -205,13 +227,14 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
         </div>
       </div>
 
+      {/* Pattern Analysis section */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Area Pattern Analysis
         </h3>
-        <div className="space-y-6">
-          {Object.entries(areaResults).map(([area, data]) => (
-            data.colexifications && (
+        {areasWithColexifications.length > 0 ? (
+          <div className="space-y-6">
+            {areasWithColexifications.map(([area, data]) => (
               <FamilyGraph
                 key={area}
                 concept1={originalConcepts[0]}
@@ -220,67 +243,13 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
                 familyName={area}
                 className="mt-4"
               />
-            )
-          ))}
-    
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-6 lg:col-span-2">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Computational vs Colexical Similarity by Area
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(areaResults).map(([area, data]) => {
-            const avgEmbeddingSim = data.embeddings.reduce(
-              (sum, curr) => sum + curr.similarity, 0
-            ) / data.embeddings.length;
-            
-            const colexRate = data.colexifications.direct_colexification.frequency / 
-              data.colexifications.total_languages;
-            
-            return (
-              <div 
-                key={area}
-                className="p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
-              >
-                <h4 className="font-medium mb-3 text-gray-900">{area}</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Embedding Similarity
-                    </span>
-                    <span className="font-medium text-blue-600">
-                      {avgEmbeddingSim.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">
-                      Shared Colexification
-                    </span>
-                    <span className="font-medium text-green-600">
-                      {(colexRate * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="relative pt-1">
-                    <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100">
-                      <div
-                        style={{ width: `${avgEmbeddingSim}%` }}
-                        className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
-                      />
-                    </div>
-                    <div className="overflow-hidden h-2 text-xs flex rounded bg-gray-100 mt-1">
-                      <div
-                        style={{ width: `${colexRate * 100}%` }}
-                        className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-gray-500 py-8">
+            No colexification patterns found across linguistic areas
+          </div>
+        )}
       </div>
     </div>
   );

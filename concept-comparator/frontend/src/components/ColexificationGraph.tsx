@@ -8,6 +8,7 @@ interface ColexificationGraphProps {
   concept2: string;
   colexifications: Record<string, LanguageColexification[]>;
   className?: string;
+  title?: string;
 }
 
 interface Node extends VisNode {
@@ -29,7 +30,8 @@ export const ColexificationGraph: React.FC<ColexificationGraphProps> = ({
   concept1, 
   concept2, 
   colexifications,
-  className = ""
+  className = "",
+  title
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
@@ -226,6 +228,7 @@ export const ColexificationGraph: React.FC<ColexificationGraphProps> = ({
 
   return (
     <div className={`bg-white rounded-lg p-4 ${className}`}>
+      {title && <h3 className="text-lg font-semibold mb-4">{title}</h3>}
       <div 
         ref={containerRef} 
         className="border border-gray-100 rounded-lg"

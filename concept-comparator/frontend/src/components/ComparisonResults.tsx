@@ -160,12 +160,12 @@ export const ComparisonResults: React.FC<ComparisonResultsProps> = ({ results })
 
                 return hasColexifications ? (
                   <>
-                    <h3 className="text-lg font-semibold">Colexifications</h3>
                     <ColexificationGraph
                       concept1={originalConcepts[0]}
                       concept2={originalConcepts[1]}
                       colexifications={result.language_colexifications}
                       className="mt-1"
+                      title='Colexifications'
                     />
                   </>
                 ) : null;
