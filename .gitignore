@@ -56,7 +56,7 @@ ENV/
 # Model files and caches
 *.pkl
 *.h5
-*.model
+models/
 __pycache__/
 .cache/
 .pytest_cache/
