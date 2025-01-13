@@ -4,9 +4,12 @@ import { WordSenseSelector } from './components/WordSenseSelector';
 import { ComparisonContainer } from './components/ComparisonContainer';
 import { LanguageSelector } from './components/LanguageSelector';
 import ConceptSearch from './components/ConceptSearch';
+import ComparisonHistory from './components/ComparisonHistory';
+import { HistoryItem } from './components/ComparisonHistory';
 import InfoPanel from './components/InformationPanel';
 import { apiClient } from './api/client';
 import { WordSense, ComparisonResult, Languages, ComparisonData, ClicsMatch } from './types';
+
 
 function App() {
   const [concept1, setConcept1] = useState('');
@@ -95,6 +98,27 @@ function App() {
     }
   };
 
+  const handleHistorySelect = (item: HistoryItem) => {
+    // Restore UI state
+    setConcept1(item.concepts[0]);
+    setConcept2(item.concepts[1]);
+    setConcept1Mode(item.modes[0]);
+    setConcept2Mode(item.modes[1]);
+    setSelectedLanguages(item.selectedLanguages);
+  
+    compareWords({
+      concept1: item.concepts[0],
+      sense_id1: item.modes[0] === 'wordnet' 
+        ? item.senseIds[0] || ''
+        : formatClicsSense(item.clicsMatches?.concept1), // Use stored CLICS data
+      concept2: item.concepts[1],
+      sense_id2: item.modes[1] === 'wordnet'
+        ? item.senseIds[1] || ''
+        : formatClicsSense(item.clicsMatches?.concept2), // Use stored CLICS data
+      languages: item.selectedLanguages
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 font-['Inter']">
       <div className="max-w-7xl mx-auto p-8">
@@ -113,6 +137,22 @@ function App() {
 
         {/* Main content area */}
         <div className="max-w-6xl mx-auto">
+          {/* History Panel */}
+          <ComparisonHistory
+            onSelect={handleHistorySelect}
+            currentConcepts={concept1 && concept2 ? [concept1, concept2] as [string, string] : undefined}
+            currentModes={concept1Mode && concept2Mode ? [concept1Mode, concept2Mode] : undefined}
+            currentSenseIds={[
+              selectedSense1?.synset_id || null,
+              selectedSense2?.synset_id || null
+            ]}
+            selectedLanguages={selectedLanguages}
+            hasResults={!!results}
+            clicsMatches1={clicsMatches1}
+            clicsMatches2={clicsMatches2}
+            className="bg-white rounded-xl p-6 mb-8 shadow-sm"
+          />
+
           {/* Concepts grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Concept 1 Container */}
