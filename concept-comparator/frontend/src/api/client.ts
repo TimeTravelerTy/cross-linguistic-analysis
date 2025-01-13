@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { ComparisonData, ComparisonResult, ProgressCallback, ComparisonProgress } from '@/types';
 
 const API_URL = 'http://localhost:8000'; // Change this if your backend runs on a different port
 
@@ -28,6 +29,61 @@ api.interceptors.response.use(
   }
 );
 
+export const compareWordsWithProgress = async (
+  data: ComparisonData, 
+  onProgress: ProgressCallback
+): Promise<Record<string, ComparisonResult>> => {
+  const response = await fetch(`${API_URL}/compare-concepts-progress`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6)) as ComparisonProgress;
+          
+          if ('error' in data && typeof data.error === 'string') {
+            throw new Error(data.error);
+          }
+
+          if (data.progress) {
+            onProgress(data.progress, data.current_language);
+          }
+
+          if (data.results) {
+            return data.results;
+          }
+        } catch (e) {
+          console.error('Error parsing SSE data:', e);
+        }
+      }
+    }
+  }
+
+  throw new Error('Stream ended without results');
+};
+
 // Type-safe API functions
 export const apiClient = {
   getWordSenses: (word: string) => 
@@ -49,6 +105,9 @@ export const apiClient = {
     
   getClicsConcepts: () => 
     api.get('/clics-concepts').then(res => res.data),
+
+  compareWordsWithProgress,
+  
 };
 
 export const getSemanticChains = async (

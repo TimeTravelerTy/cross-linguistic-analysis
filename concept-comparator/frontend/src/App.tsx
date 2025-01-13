@@ -7,6 +7,7 @@ import ConceptSearch from './components/ConceptSearch';
 import ComparisonHistory from './components/ComparisonHistory';
 import { HistoryItem } from './components/ComparisonHistory';
 import InfoPanel from './components/InformationPanel';
+import ProgressButton from './components/ProgressButton';
 import { apiClient } from './api/client';
 import { WordSense, ComparisonResult, Languages, ComparisonData, ClicsMatch } from './types';
 
@@ -19,6 +20,7 @@ function App() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [concept1Mode, setConcept1Mode] = useState<'wordnet' | 'clics'>('wordnet');
   const [concept2Mode, setConcept2Mode] = useState<'wordnet' | 'clics'>('wordnet');
+  const [progress, setProgress] = useState(0);
 
   const { data: senses1, isLoading: loading1 } = useQuery<WordSense[]>({
     queryKey: ['wordSenses', concept1],
@@ -57,15 +59,21 @@ function App() {
     ComparisonData
   >({
     mutationFn: (data) => {
-      return apiClient.compareWords({
-        ...data,
-        languages: data.languages.map(langCode => langCode.toLowerCase())
-      });
+      return apiClient.compareWordsWithProgress(
+        {
+          ...data,
+          languages: data.languages.map(langCode => langCode.toLowerCase())
+        },
+        (progress: number) => {
+          setProgress(progress);
+        }
+      );
     },
-    onError: (error) => {
-      console.error('Comparison failed:', error);
+    onSettled: () => {
+      setProgress(0);
     }
   });
+
 
   const canCompare = (
     // WordNet mode requirements
@@ -236,17 +244,14 @@ function App() {
 
           {/* Compare Button */}
           <div className="text-center mb-8">
-            <button
+            <ProgressButton
               onClick={handleCompare}
               disabled={!canCompare}
-              className={`px-8 py-3 rounded-lg font-medium transition-colors
-                ${!canCompare
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-                }`}
+              isLoading={comparing}
+              progress={progress}
             >
-              {comparing ? 'Comparing...' : 'Compare Concepts'}
-            </button>
+              Compare Concepts
+            </ProgressButton>
           </div>
 
           {/* Results */}

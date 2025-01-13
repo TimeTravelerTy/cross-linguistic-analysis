@@ -92,3 +92,13 @@ export interface LanguageInfo {
 export interface Languages {
 [key: string]: LanguageInfo;
 }
+
+export type ProgressCallback = (progress: number, language: string) => void;
+
+export interface ComparisonProgress {
+  progress: number;
+  current_language: string;
+  processed: number;
+  total: number;
+  results?: Record<string, ComparisonResult>;
+}

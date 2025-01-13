@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Optional
+from fastapi.responses import StreamingResponse
+from typing import List, Dict, Optional, AsyncGenerator
 from app.services.disambiguation import DisambiguationService
 from app.services.translation import TranslationService
 from app.services.embedding import EmbeddingService
@@ -13,6 +14,8 @@ from app.services.clics import ClicsService
 from app.models.schemas import ComparisonResult
 from dotenv import load_dotenv
 import logging
+import json
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -185,12 +188,108 @@ async def get_word_senses(word: str):
     except Exception as e:
         logger.error(f"Error processing word senses for {word}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+async def process_language(
+    request: ComparisonRequest,
+    lang: str,
+    lang_name: str,
+    family: str | None
+) -> ComparisonResult:
+    """Process a single language comparison"""
+    # Get language-specific colexifications
+    concept1_colexs = clics_service.get_language_colexifications(
+        request.concept1, 
+        lang
+    )
+    
+    concept2_colexs = clics_service.get_language_colexifications(
+        request.concept2,
+        lang
+    ) 
+
+    # Get translations
+    trans1 = translation_service.get_translation(
+        request.concept1, 
+        request.sense_id1, 
+        lang_name
+    )
+    
+    trans2 = translation_service.get_translation(
+        request.concept2,
+        request.sense_id2,
+        lang_name
+    )
+    
+    # Get embeddings
+    emb1 = embedding_service.get_embedding(trans1.main_translation, lang_name, request.concept1)
+    emb2 = embedding_service.get_embedding(trans2.main_translation, lang_name, request.concept2)
+    
+    # Calculate similarity
+    main_similarity = embedding_service.compute_similarity(emb1, emb2)
+    
+    # Process variations
+    variation_similarities = []
+    
+    # Compare variations from trans1 with main translation and variations of trans2
+    if trans1.variations:
+        # Compare trans1 variations with trans2 main translation
+        for var1 in trans1.variations:
+            var_emb1 = embedding_service.get_embedding(var1.word, lang_name, request.concept1)
+            emb2 = embedding_service.get_embedding(trans2.main_translation, lang_name, request.concept2)
+            sim = embedding_service.compute_similarity(var_emb1, emb2)
+            variation_similarities.append({
+                "similarity": float(sim),
+                "context": f"{var1.context} (Variation) - Main translation",
+                "words": (var1.word, trans2.main_translation)
+            })
+            
+            # If trans2 has variations, compare with those too
+            if trans2.variations:
+                for var2 in trans2.variations:
+                    var_emb2 = embedding_service.get_embedding(var2.word, lang_name, request.concept2)
+                    sim = embedding_service.compute_similarity(var_emb1, var_emb2)
+                    variation_similarities.append({
+                        "similarity": float(sim),
+                        "context": f"{var1.context} - {var2.context}",
+                        "words": (var1.word, var2.word)
+                    })
+    
+    # Compare variations from trans2 with main translation of trans1
+    if trans2.variations:
+        # Compare trans2 variations with trans1 main translation
+        for var2 in trans2.variations:
+            var_emb2 = embedding_service.get_embedding(var2.word, lang_name, request.concept2)
+            emb1 = embedding_service.get_embedding(trans1.main_translation, lang_name, request.concept1)
+            sim = embedding_service.compute_similarity(emb1, var_emb2)
+            variation_similarities.append({
+                "similarity": float(sim),
+                "context": f"Main translation - {var2.context} (Variation)",
+                "words": (trans1.main_translation, var2.word)
+            })
+    
+    # Sort variations by similarity score
+    variation_similarities.sort(key=lambda x: x["similarity"], reverse=True)
+    
+    return ComparisonResult(
+        main_similarity=float(main_similarity),
+        main_translations=(trans1.main_translation, trans2.main_translation),
+        embeddings=(emb1.tolist(), emb2.tolist()),
+        variation_similarities=variation_similarities,
+        usage_notes={
+            "concept1": trans1.usage_notes,
+            "concept2": trans2.usage_notes
+        },
+        language_colexifications={
+            request.concept1: concept1_colexs,
+            request.concept2: concept2_colexs
+        },
+        family_colexifications={}  # We'll add this later when we have all results
+    )
 
 @app.post("/compare-concepts", response_model=Dict[str, ComparisonResult])
 async def compare_concepts(request: ComparisonRequest):
     """Compare concepts with both embedding similarities and colexification patterns"""
     try:
-        print(f"Received comparison request: {request}")
         results = {}
         
         # Get language families for the requested languages
@@ -209,110 +308,20 @@ async def compare_concepts(request: ComparisonRequest):
             families=list(families)
         ) 
         
-        
         for lang in request.languages:
             lang_name = SUPPORTED_LANGUAGES[lang]['name']
             print(f"Processing language: {lang_name}")
             family = get_language_family(lang)
+            
             try:
-                print("Getting concept1 colexifications...")
-                # Get language-specific colexifications
-                concept1_colexs = clics_service.get_language_colexifications(
-                    request.concept1, 
-                    lang
-                )
+                # Use the shared process_language function
+                result = await process_language(request, lang, lang_name, family)
                 
-                print("\nGetting concept2 colexifications...")
-                concept2_colexs = clics_service.get_language_colexifications(
-                    request.concept2,
-                    lang
-                ) 
-
+                # Add family colexifications
+                if family:
+                    result.family_colexifications = family_colexifications
                 
-                # Get translations
-                trans1 = translation_service.get_translation(
-                    request.concept1, 
-                    request.sense_id1, 
-                    lang_name
-                )
-                print(f"Translation 1: {trans1}")
-                
-                trans2 = translation_service.get_translation(
-                    request.concept2,
-                    request.sense_id2,
-                    lang_name
-                )
-                print(f"Translation 2: {trans2}")
-                
-                # Get embeddings
-                emb1 = embedding_service.get_embedding(trans1.main_translation, lang_name, request.concept1)
-                emb2 = embedding_service.get_embedding(trans2.main_translation, lang_name, request.concept2)
-                
-                # Calculate similarity
-                main_similarity = embedding_service.compute_similarity(emb1, emb2)
-                
-                # Process variations (keeping original variation handling)
-                variation_similarities = []
-                
-                # Compare variations from trans1 with main translation and variations of trans2
-                if trans1.variations:
-                    # Compare trans1 variations with trans2 main translation
-                    for var1 in trans1.variations:
-                        var_emb1 = embedding_service.get_embedding(var1.word, lang_name, request.concept1)
-                        emb2 = embedding_service.get_embedding(trans2.main_translation, lang_name, request.concept2)
-                        sim = embedding_service.compute_similarity(var_emb1, emb2)
-                        variation_similarities.append({
-                            "similarity": float(sim),
-                            "context": f"{var1.context} (Variation) - Main translation",
-                            "words": (var1.word, trans2.main_translation)
-                        })
-                        
-                        # If trans2 has variations, compare with those too
-                        if trans2.variations:
-                            for var2 in trans2.variations:
-                                var_emb2 = embedding_service.get_embedding(var2.word, lang_name, request.concept2)
-                                sim = embedding_service.compute_similarity(var_emb1, var_emb2)
-                                variation_similarities.append({
-                                    "similarity": float(sim),
-                                    "context": f"{var1.context} - {var2.context}",
-                                    "words": (var1.word, var2.word)
-                                })
-                
-                # Compare variations from trans2 with main translation of trans1
-                if trans2.variations:
-                    # Compare trans2 variations with trans1 main translation
-                    for var2 in trans2.variations:
-                        var_emb2 = embedding_service.get_embedding(var2.word, lang_name, request.concept2)
-                        emb1 = embedding_service.get_embedding(trans1.main_translation, lang_name, request.concept1)
-                        sim = embedding_service.compute_similarity(emb1, var_emb2)
-                        variation_similarities.append({
-                            "similarity": float(sim),
-                            "context": f"Main translation - {var2.context} (Variation)",
-                            "words": (trans1.main_translation, var2.word)
-                        })
-                
-                # Sort variations by similarity score in descending order
-                variation_similarities.sort(key=lambda x: x["similarity"], reverse=True)
-                
-                
-                # Get family for this language
-                family = get_language_family(lang)
-                
-                results[lang] = ComparisonResult(
-                    main_similarity=float(main_similarity),
-                    main_translations=(trans1.main_translation, trans2.main_translation),
-                    embeddings=(emb1.tolist(), emb2.tolist()),
-                    variation_similarities=variation_similarities,
-                    usage_notes={
-                        "concept1": trans1.usage_notes,
-                        "concept2": trans2.usage_notes
-                    },
-                    language_colexifications={
-                        request.concept1: concept1_colexs,
-                        request.concept2: concept2_colexs
-                    },
-                    family_colexifications=family_colexifications
-                )
+                results[lang] = result
                 
             except Exception as e:
                 print(f"Error processing language {lang}: {str(e)}")
@@ -328,7 +337,6 @@ async def compare_concepts(request: ComparisonRequest):
         print(f"Error in comparison: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/supported-languages")
 async def get_supported_languages():
     """Get list of supported languages with their metadata"""
@@ -339,6 +347,72 @@ def get_language_family(lang_code: str) -> Optional[str]:
     if lang_code in SUPPORTED_LANGUAGES:
         return SUPPORTED_LANGUAGES[lang_code]['family']
     return None
+
+async def stream_comparison_results(request: ComparisonRequest) -> AsyncGenerator[str, None]:
+    """Stream comparison results with progress updates"""
+    try:
+        results = {}
+        total_languages = len(request.languages)
+        
+        # Get language families for the requested languages
+        families = set()
+        for lang in request.languages:
+            family = get_language_family(lang)
+            if family:
+                families.add(family)
+
+        # Get detailed family colexification patterns
+        family_colexifications = clics_service.get_family_colexifications(
+            request.concept1,
+            request.concept2,
+            families=list(families)
+        )
+        
+        for idx, lang in enumerate(request.languages):
+            lang_name = SUPPORTED_LANGUAGES[lang]['name']
+            family = get_language_family(lang)
+            
+            try:
+                # Process the language
+                result = await process_language(request, lang, lang_name, family)
+                
+                # Add family colexifications
+                if family:
+                    result.family_colexifications = family_colexifications
+                
+                results[lang] = result.model_dump()
+                
+                # Send progress update
+                progress = {
+                    "progress": round((idx + 1) * 100 / total_languages),
+                    "current_language": lang_name,
+                    "processed": idx + 1,
+                    "total": total_languages
+                }
+                
+                # Include full results only in final update
+                if idx + 1 == total_languages:
+                    progress["results"] = results
+                    
+                yield f"data: {json.dumps(progress)}\n\n"
+                await asyncio.sleep(0.1)  # Small delay to prevent overwhelming
+                
+            except Exception as e:
+                logger.error(f"Error processing language {lang}: {str(e)}")
+                # Skip this language and continue with others
+                continue
+                
+    except Exception as e:
+        error_data = {"error": str(e)}
+        yield f"data: {json.dumps(error_data)}\n\n"
+
+@app.post("/compare-concepts-progress")
+async def compare_concepts_with_progress(request: ComparisonRequest):
+    """Compare concepts with progress updates via server-sent events"""
+    return StreamingResponse(
+        stream_comparison_results(request),
+        media_type="text/event-stream"
+    )
 
 @app.get("/semantic-chains/{concept1}/{concept2}")
 async def get_semantic_chains(
