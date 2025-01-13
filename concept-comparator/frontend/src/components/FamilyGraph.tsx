@@ -71,6 +71,22 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
     const edgesArray: Edge[] = [];
     const addedNodes = new Set([concept1.toLowerCase(), concept2.toLowerCase()]);
 
+    // Add direct colexification edge if it exists
+    if (familyData.direct_colexification.frequency > 0) {
+      const frequency = familyData.direct_colexification.frequency / familyData.total_languages;
+      const frequencyPercent = (frequency * 100).toFixed(1);
+      
+      edgesArray.push({
+        id: `direct-${concept1}-${concept2}`,
+        from: 1,
+        to: 2,
+        width: Math.max(2, frequency * 5),
+        color: '#93c5fd',
+        title: `Direct colexification: ${frequencyPercent}% (${familyData.direct_colexification.frequency}/${familyData.total_languages} languages)`,
+        frequency
+      });
+    }
+
     // First, collect all unique colexifications and their connections
     const colexMap: Record<string, {
       nodeId?: number;
