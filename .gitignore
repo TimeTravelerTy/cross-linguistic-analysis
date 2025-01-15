@@ -71,5 +71,4 @@ __pycache__/
 *.json
 
 # CLICS data
-data/clics/
 *.temp
