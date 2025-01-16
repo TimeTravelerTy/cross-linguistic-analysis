@@ -21,8 +21,9 @@ import asyncio
 load_dotenv()
 
 clics_service = ClicsService()
-
+print("Done creating `clics_service`—about to create `app`!")
 app = FastAPI()
+print("Done creating `app`—about to run the rest of main.py!")
 
 # Initialize services
 disambiguation_service = DisambiguationService()
