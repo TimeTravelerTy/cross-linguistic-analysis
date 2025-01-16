@@ -73,7 +73,7 @@ const SemanticChainList: React.FC<Props> = ({
                             opacity: Math.max(0.4, chain.scores[pathIdx])
                           }}
                         >
-                          →
+                          ↔
                         </span>
                         <div className="fixed transform -translate-x-1/2 px-2 py-1 text-xs 
                           bg-gray-900 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity
