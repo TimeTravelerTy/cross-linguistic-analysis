@@ -19,48 +19,18 @@ class ClicsService:
         try:
             with open(network_path, 'r', encoding='utf-8') as f:
                 gml_data = f.read()
-            print("Cleaning data...")    
+                
             # Clean the data to ensure ASCII compatibility
             gml_data = gml_data.encode('ascii', 'ignore').decode('ascii')
-            print("Data cleaned")
-
-            print("Creating temporary file...")
+            
             # Create temporary file with cleaned data
             temp_path = network_path + '.temp'
             with open(temp_path, 'w') as f:
                 f.write(gml_data)
                 
-            # Load only a portion of the network by using a generator to read lines
-            self.graph = nx.Graph()
-            nodes_added = 0
-            max_nodes = 100
-            print(f"Loading up to {max_nodes} nodes...")
-            with open(temp_path, 'r') as f:
-                # Skip header until node section
-                for line in f:
-                    if line.strip() == "graph [":
-                        break
-                
-                # Read nodes until we hit max
-                in_node = False
-                current_node = {}
-                
-                for line in f:
-                    line = line.strip()
-                    if line == "node [":
-                        in_node = True
-                        current_node = {}
-                    elif line == "]":
-                        if in_node:
-                            self.graph.add_node(current_node.get('id', nodes_added), **current_node)
-                            nodes_added += 1
-                            if nodes_added >= max_nodes:
-                                break
-                        in_node = False
-                    elif in_node and "=" in line:
-                        key, value = line.split('[', 1)[0].strip(), line.split('[', 1)[1].strip('][')
-                        current_node[key] = value
-           
+            # Load the network from cleaned file
+            self.graph = nx.read_gml(temp_path)
+            
             # Clean up temp file
             os.remove(temp_path)
             
@@ -79,7 +49,6 @@ class ClicsService:
         except Exception as e:
             print(f"Error loading CLICS network: {str(e)}")
             raise
-
 
     def _build_family_language_map(self) -> Dict[str, Set[str]]:
         """Build a mapping from family names to the set of unique languages in each family."""

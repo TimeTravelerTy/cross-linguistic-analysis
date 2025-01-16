@@ -21,20 +21,14 @@ import asyncio
 load_dotenv()
 
 clics_service = ClicsService()
-print("Done creating `clics_service`—about to create `app`!")
+
 app = FastAPI()
-print("Done creating `app`—about to run the rest of main.py!")
 
 # Initialize services
-print("About to initialize services...")
 disambiguation_service = DisambiguationService()
-print("Done initializing `disambiguation_service`!")
 translation_service = TranslationService()
-print("Done initializing `translation_service`!")
 embedding_service = EmbeddingService()
-print("Done initializing `embedding_service`!")
 
-print("Adding middleware to `app`...")
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -43,7 +37,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-print("Done adding middleware to `app`!")
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
