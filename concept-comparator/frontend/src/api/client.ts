@@ -1,7 +1,9 @@
 import axios, { AxiosError } from 'axios';
 import { ComparisonData, ComparisonResult, ProgressCallback, ComparisonProgress } from '@/types';
 
-const API_URL = 'http://localhost:8000'; // Change this if your backend runs on a different port
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://cross-linguistic-analysis-production.up.railway.app'
+  : 'http://localhost:8000';
 
 export const api = axios.create({
   baseURL: API_URL,
