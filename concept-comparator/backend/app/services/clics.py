@@ -28,8 +28,36 @@ class ClicsService:
             with open(temp_path, 'w') as f:
                 f.write(gml_data)
                 
-            # Load the network from cleaned file
-            self.graph = nx.read_gml(temp_path)
+            # Load only a portion of the network by using a generator to read lines
+            self.graph = nx.Graph()
+            nodes_added = 0
+            max_nodes = 100
+            
+            with open(temp_path, 'r') as f:
+                # Skip header until node section
+                for line in f:
+                    if line.strip() == "graph [":
+                        break
+                
+                # Read nodes until we hit max
+                in_node = False
+                current_node = {}
+                
+                for line in f:
+                    line = line.strip()
+                    if line == "node [":
+                        in_node = True
+                        current_node = {}
+                    elif line == "]":
+                        if in_node:
+                            self.graph.add_node(current_node.get('id', nodes_added), **current_node)
+                            nodes_added += 1
+                            if nodes_added >= max_nodes:
+                                break
+                        in_node = False
+                    elif in_node and "=" in line:
+                        key, value = line.split('[', 1)[0].strip(), line.split('[', 1)[1].strip('][')
+                        current_node[key] = value
             
             # Clean up temp file
             os.remove(temp_path)
