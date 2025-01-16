@@ -19,10 +19,12 @@ class ClicsService:
         try:
             with open(network_path, 'r', encoding='utf-8') as f:
                 gml_data = f.read()
-                
+            print("Cleaning data...")    
             # Clean the data to ensure ASCII compatibility
             gml_data = gml_data.encode('ascii', 'ignore').decode('ascii')
-            
+            print("Data cleaned")
+
+            print("Creating temporary file...")
             # Create temporary file with cleaned data
             temp_path = network_path + '.temp'
             with open(temp_path, 'w') as f:
@@ -32,7 +34,7 @@ class ClicsService:
             self.graph = nx.Graph()
             nodes_added = 0
             max_nodes = 100
-            
+            print(f"Loading up to {max_nodes} nodes...")
             with open(temp_path, 'r') as f:
                 # Skip header until node section
                 for line in f:
@@ -58,7 +60,7 @@ class ClicsService:
                     elif in_node and "=" in line:
                         key, value = line.split('[', 1)[0].strip(), line.split('[', 1)[1].strip('][')
                         current_node[key] = value
-            
+            print(f"Loaded {nodes_added} nodes")
             # Clean up temp file
             os.remove(temp_path)
             
