@@ -11,12 +11,6 @@ class ClicsService:
         """Initialize by loading the pre-computed network and building family-language mappings."""
         print("Starting CLICS service initialization...")
         network_path = os.getenv("CLICS_NETWORK_PATH")
-        print("Debug: Environment variables:")
-        print(f"CLICS_NETWORK_PATH = {network_path}")
-        print("Debug: Directory structure:")
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Contents of /app: {os.listdir('/app')}")
-        print(f"Contents of data/clics: {os.listdir('data/clics')}")
         if not network_path or not Path(network_path).exists():
             raise ValueError(f"CLICS network file not found at {network_path}")
             
