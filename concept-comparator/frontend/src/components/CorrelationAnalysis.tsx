@@ -73,24 +73,27 @@ const CorrelationAnalysis: React.FC<Props> = ({
     }
   }, [currentConcepts, currentData, shouldStore]);  // Added shouldStore to dependencies
 
-  // Calculate data points - only using families with non-zero colexification
+  // Calculate data points
   const dataPoints = allComparisons.map(comparison => {
-    const activeFamilies = Object.keys(comparison.colexifications);
+    // Only include families that have non-zero colexification scores
+    const activeFamilies = Object.entries(comparison.colexifications)
+      .filter(([_, score]) => score > 0)
+      .map(([family]) => family);
     
     if (activeFamilies.length === 0) return null;
-
-    // Calculate averages across active families
+  
+    // Calculate averages only across families with non-zero scores
     const avgEmbedding = _.meanBy(activeFamilies, f => comparison.embeddings[f]);
     const avgColex = _.meanBy(activeFamilies, f => comparison.colexifications[f]);
-
+  
     return {
       concepts: comparison.concepts,
       embeddingSim: avgEmbedding,
       colexScore: avgColex,
-      coverage: comparison.coverage,
+      coverage: activeFamilies.length / Object.keys(comparison.colexifications).length,
       timestamp: comparison.timestamp,
       activeFamilies: activeFamilies.length,
-      totalFamilies: Object.keys(currentData.colexifications).length
+      totalFamilies: Object.keys(comparison.colexifications).length
     };
   }).filter(Boolean);
 
