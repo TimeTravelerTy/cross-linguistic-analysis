@@ -184,7 +184,7 @@ export const FamilyGraph: React.FC<FamilyGraphProps> = ({
         enabled: true,
         stabilization: true,
         barnesHut: {
-          gravitationalConstant: -1500,
+          gravitationalConstant: -3000,
           centralGravity: 0.5,
           springLength: 95,
           springConstant: 0.04,
