@@ -36,7 +36,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ className = "" }) => {
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>Important Note</AlertTitle>
         <AlertDescription>
-          Translations are generated using GPT-4o-mini, an AI model. While generally accurate,
+          Translations are generated using the configured AI translation model. While generally accurate,
           they may occasionally contain errors or miss nuanced cultural contexts. For critical
           research, please verify translations with native speakers or linguistic resources.
         </AlertDescription>
@@ -54,7 +54,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ className = "" }) => {
                 <div>
                   <h3 className="font-medium mb-1">AI-Powered Translation</h3>
                   <p className="text-gray-600 text-sm">
-                    GPT-4o-mini generates translations with context-specific variations
+                    The translation model generates context-specific variations
                     and usage notes. Each translation considers grammatical and cultural
                     requirements of the target language.
                   </p>

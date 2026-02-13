@@ -69,6 +69,11 @@ __pycache__/
 *.csv
 *.tsv
 *.json
+!concept-comparator/frontend/package.json
+!concept-comparator/frontend/package-lock.json
+!concept-comparator/frontend/tsconfig.json
+!concept-comparator/frontend/tsconfig.app.json
+!concept-comparator/frontend/tsconfig.node.json
 
 # CLICS data
 *.temp

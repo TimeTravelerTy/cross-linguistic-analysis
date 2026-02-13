@@ -10,9 +10,16 @@ class ClicsService:
     def __init__(self):
         """Initialize by loading the pre-computed network and building family-language mappings."""
         print("Starting CLICS service initialization...")
-        network_path = os.getenv("CLICS_NETWORK_PATH")
-        if not network_path or not Path(network_path).exists():
-            raise ValueError(f"CLICS network file not found at {network_path}")
+        configured_path = (os.getenv("CLICS_NETWORK_PATH") or "").strip()
+        network_path, checked_paths = self._resolve_network_path(configured_path)
+        if not network_path:
+            checked_paths_msg = "\n".join(f"  - {path}" for path in checked_paths)
+            raise ValueError(
+                "CLICS network file not found.\n"
+                f"Configured CLICS_NETWORK_PATH: '{configured_path}'\n"
+                "Checked paths:\n"
+                f"{checked_paths_msg}"
+            )
             
         print(f"Loading network from {network_path}...")
         
@@ -24,7 +31,7 @@ class ClicsService:
             gml_data = gml_data.encode('ascii', 'ignore').decode('ascii')
             
             # Create temporary file with cleaned data
-            temp_path = network_path + '.temp'
+            temp_path = Path(f"{network_path}.temp")
             with open(temp_path, 'w') as f:
                 f.write(gml_data)
                 
@@ -32,7 +39,7 @@ class ClicsService:
             self.graph = nx.read_gml(temp_path)
             
             # Clean up temp file
-            os.remove(temp_path)
+            temp_path.unlink()
             
             node_count = len(self.graph.nodes)
             edge_count = len(self.graph.edges)
@@ -49,6 +56,42 @@ class ClicsService:
         except Exception as e:
             print(f"Error loading CLICS network: {str(e)}")
             raise
+
+    def _resolve_network_path(self, configured_path: str) -> tuple[Optional[Path], List[Path]]:
+        """Resolve CLICS network path across common project layouts."""
+        project_root = Path(__file__).resolve().parents[3]  # concept-comparator/
+        backend_root = Path(__file__).resolve().parents[2]  # concept-comparator/backend/
+
+        candidates: List[Path] = []
+
+        if configured_path:
+            env_path = Path(configured_path).expanduser()
+            if env_path.is_absolute():
+                candidates.append(env_path)
+            else:
+                candidates.append(Path.cwd() / env_path)
+                candidates.append(project_root / env_path)
+                candidates.append(backend_root / env_path)
+
+        candidates.extend([
+            project_root / "data/clics/network-3-families.gml",
+            project_root / "backend/data/clics/network-3-families.gml",
+            backend_root / "data/clics/network-3-families.gml",
+        ])
+
+        checked_paths: List[Path] = []
+        seen = set()
+
+        for path in candidates:
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            checked_paths.append(resolved)
+            if resolved.exists():
+                return resolved, checked_paths
+
+        return None, checked_paths
 
     def _build_family_language_map(self) -> Dict[str, Set[str]]:
         """Build a mapping from family names to the set of unique languages in each family."""
