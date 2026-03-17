@@ -1,0 +1,16 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      "composite": true,
+      "jsx": "react-jsx",
+      "allowImportingTsExtensions": true,
+      "isolatedModules": true,
+      "noEmit": true,
+  
+      /* Linting */
+      "noUnusedLocals": true,
+      "noUnusedParameters": true,
+      "noFallthroughCasesInSwitch": true
+    },
+    "include": ["src"]
+}

@@ -27,12 +27,12 @@ const InfoTooltip: React.FC<InfoTooltipProps> = ({
           <span className="inline-flex items-center gap-1">
             {children}
             {showIcon && (
-              <Info className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors" />
+              <Info className="h-4 w-4 text-stone-400 transition-colors hover:text-slate-700" />
             )}
           </span>
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          <p className="text-sm">{content}</p>
+          <div className="text-sm leading-6">{content}</div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

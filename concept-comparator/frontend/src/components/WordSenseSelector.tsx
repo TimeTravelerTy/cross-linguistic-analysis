@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { WordSense } from '../types';
 
 interface Props {
@@ -8,102 +9,64 @@ interface Props {
   onSelect: (sense: WordSense) => void;
 }
 
-export const WordSenseSelector: React.FC<Props> = ({ 
-  word, 
-  senses, 
-  selectedSense, 
-  onSelect 
-}) => {
-  // Track which sense is being hovered
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-
-  return (
-    <div style={{ padding: '1rem' }}>
-      <h3 style={{ 
-        fontSize: '1.125rem',
-        fontWeight: '500',
-        color: '#374151',
-        marginBottom: '1rem'
-      }}>
-        Select meaning for "{word}"
-      </h3>
-      
-      <div style={{ 
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.75rem',
-        maxHeight: '28rem',
-        overflowY: 'auto',
-        paddingRight: '0.5rem'
-      }}>
-        {senses.map((sense) => {
-          const isSelected = selectedSense?.synset_id === sense.synset_id;
-          const isHovered = hoveredId === sense.synset_id;
-
-          return (
-            <div
-              key={sense.synset_id}
-              onClick={() => onSelect(sense)}
-              onMouseEnter={() => setHoveredId(sense.synset_id)}
-              onMouseLeave={() => setHoveredId(null)}
-              style={{
-                padding: '1rem',
-                borderRadius: '8px',
-                border: `2px solid ${isSelected ? '#3b82f6' : isHovered ? '#93c5fd' : '#e5e7eb'}`,
-                backgroundColor: isSelected ? '#eff6ff' : isHovered ? '#f8fafc' : 'white',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: isHovered ? '0 2px 4px rgba(0, 0, 0, 0.05)' : 'none'
-              }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  onSelect(sense);
-                }
-              }}
-            >
-              <div style={{ 
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '0.5rem'
-              }}>
-                <span style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  backgroundColor: '#dbeafe',
-                  color: '#1e40af',
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '9999px'
-                }}>
-                  {sense.category}
-                </span>
-                {isSelected && (
-                  <span style={{ color: '#3b82f6' }}>✓</span>
-                )}
-              </div>
-              
-              <p style={{ 
-                color: '#111827',
-                marginBottom: '0.5rem'
-              }}>
-                {sense.definition}
-              </p>
-              
-              {sense.examples.length > 0 && (
-                <p style={{ 
-                  fontSize: '0.875rem',
-                  color: '#6b7280',
-                  fontStyle: 'italic'
-                }}>
-                  Example: "{sense.examples[0]}"
-                </p>
-              )}
-            </div>
-          );
-        })}
+export const WordSenseSelector: React.FC<Props> = ({ word, senses, selectedSense, onSelect }) => (
+  <div>
+    <div className="mb-4 flex items-end justify-between gap-3">
+      <div>
+        <p className="atlas-label mb-1">Sense selection</p>
+        <h3 className="text-xl text-slate-900">Resolve the meaning of "{word}"</h3>
+      </div>
+      <div className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {senses.length} options
       </div>
     </div>
-  );
-};
+
+    <div className="atlas-scroll flex max-h-[28rem] flex-col gap-3 overflow-y-auto pr-2">
+      {senses.map((sense) => {
+        const isSelected = selectedSense?.synset_id === sense.synset_id;
+
+        return (
+          <button
+            key={sense.synset_id}
+            type="button"
+            onClick={() => onSelect(sense)}
+            className={[
+              'rounded-[22px] border p-4 text-left transition-all',
+              isSelected
+                ? 'border-sky-400 bg-sky-50/80 shadow-[0_12px_28px_rgba(50,89,112,0.14)]'
+                : 'border-stone-200/80 bg-white/80 hover:-translate-y-0.5 hover:border-stone-300 hover:bg-white',
+            ].join(' ')}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                {sense.category}
+              </span>
+              {isSelected && <CheckCircle2 className="h-5 w-5 text-sky-700" />}
+            </div>
+
+            <p className="text-sm leading-7 text-slate-900">{sense.definition}</p>
+
+            {sense.lemma_names.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {sense.lemma_names.slice(0, 4).map((lemma) => (
+                  <span
+                    key={`${sense.synset_id}-${lemma}`}
+                    className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+                  >
+                    {lemma}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {sense.examples.length > 0 && (
+              <p className="mt-3 border-t border-stone-200/70 pt-3 text-sm italic leading-6 text-slate-500">
+                Example: "{sense.examples[0]}"
+              </p>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);

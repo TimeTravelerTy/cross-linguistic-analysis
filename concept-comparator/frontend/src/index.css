@@ -1,66 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+    --background: 44 38% 96%;
+    --foreground: 216 27% 14%;
+    --card: 42 43% 98%;
+    --card-foreground: 216 27% 14%;
+    --popover: 42 43% 98%;
+    --popover-foreground: 216 27% 14%;
+    --primary: 196 55% 27%;
+    --primary-foreground: 40 33% 97%;
+    --secondary: 44 34% 90%;
+    --secondary-foreground: 216 27% 20%;
+    --muted: 42 30% 92%;
+    --muted-foreground: 214 17% 38%;
+    --accent: 26 61% 52%;
+    --accent-foreground: 40 33% 97%;
+    --destructive: 3 72% 43%;
+    --destructive-foreground: 40 33% 97%;
+    --border: 36 24% 80%;
+    --input: 38 24% 84%;
+    --ring: 196 55% 27%;
+    --chart-1: 196 55% 27%;
+    --chart-2: 26 61% 52%;
+    --chart-3: 150 35% 32%;
+    --chart-4: 212 38% 45%;
+    --chart-5: 350 58% 49%;
+    --radius: 1.25rem;
   }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
-  }
-}
-@layer base {
+
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
+    background-image:
+      radial-gradient(circle at top left, rgba(191, 160, 102, 0.18), transparent 28%),
+      radial-gradient(circle at top right, rgba(44, 102, 127, 0.14), transparent 26%),
+      linear-gradient(180deg, #f7f1e7 0%, #f2eadc 54%, #eee6d7 100%);
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', serif;
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: rgba(44, 102, 127, 0.2);
+    color: #13212d;
+  }
+}
+
+@layer components {
+  .atlas-page {
+    @apply relative overflow-hidden;
+  }
+
+  .atlas-page::before,
+  .atlas-page::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .atlas-page::before {
+    background-image:
+      linear-gradient(rgba(39, 66, 81, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(39, 66, 81, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 90%);
+  }
+
+  .atlas-page::after {
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.5), transparent 24%),
+      radial-gradient(circle at 80% 0%, rgba(73, 121, 143, 0.14), transparent 28%);
+  }
+
+  .atlas-panel {
+    @apply rounded-[28px] border border-white/50 shadow-[0_18px_50px_rgba(43,53,40,0.08)] backdrop-blur-sm;
+    background: linear-gradient(180deg, rgba(255, 252, 246, 0.9), rgba(250, 244, 234, 0.94));
+  }
+
+  .atlas-panel-strong {
+    background:
+      radial-gradient(circle at top left, rgba(208, 173, 109, 0.16), transparent 28%),
+      linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(246, 236, 221, 0.96));
+  }
+
+  .atlas-gridline {
+    @apply border border-dashed;
+    border-color: rgba(105, 97, 77, 0.22);
+  }
+
+  .atlas-pill {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em];
+    border-color: rgba(42, 82, 104, 0.16);
+    background: rgba(255, 250, 242, 0.88);
+    color: #305166;
+  }
+
+  .atlas-subtle {
+    color: #58616d;
+  }
+
+  .atlas-label {
+    @apply text-xs font-semibold uppercase tracking-[0.2em];
+    color: #6e6555;
+  }
+
+  .atlas-input {
+    @apply w-full rounded-[20px] border px-4 py-3.5 text-[15px] outline-none transition-all duration-200;
+    border-color: rgba(91, 84, 63, 0.15);
+    background: rgba(255, 252, 247, 0.92);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+
+  .atlas-input::placeholder {
+    color: #8c8679;
+  }
+
+  .atlas-input:focus {
+    border-color: rgba(44, 102, 127, 0.45);
+    box-shadow:
+      0 0 0 4px rgba(44, 102, 127, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+  .atlas-chip {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold;
+    background: rgba(47, 105, 130, 0.1);
+    color: #28546b;
+  }
+
+  .atlas-section-title {
+    @apply text-2xl font-semibold;
+    color: #1c2933;
+  }
+
+  .atlas-kicker {
+    @apply text-xs font-semibold uppercase tracking-[0.24em];
+    color: #8f7551;
+  }
+
+  .atlas-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(92, 82, 61, 0.35) transparent;
+  }
+
+  .atlas-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .atlas-scroll::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: rgba(92, 82, 61, 0.28);
+  }
+
+  .atlas-scroll::-webkit-scrollbar-track {
+    background: transparent;
   }
 }

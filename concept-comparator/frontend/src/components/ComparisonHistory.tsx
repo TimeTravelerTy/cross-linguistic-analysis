@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Trash2, ChevronRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ChevronRight, Clock3, RotateCcw, Trash2 } from 'lucide-react';
 import { ClicsMatch } from '../types';
 
 export interface HistoryItem {
-    concepts: [string, string];
-    timestamp: number;
-    selectedLanguages: string[];
-    senseIds: [string | null, string | null];
-    modes: ['wordnet' | 'clics', 'wordnet' | 'clics'];
-    clicsMatches?: {  // Add this
-      concept1?: ClicsMatch;
-      concept2?: ClicsMatch;
-    };
+  concepts: [string, string];
+  timestamp: number;
+  selectedLanguages: string[];
+  senseIds: [string | null, string | null];
+  modes: ['wordnet' | 'clics', 'wordnet' | 'clics'];
+  clicsMatches?: {
+    concept1?: ClicsMatch;
+    concept2?: ClicsMatch;
+  };
 }
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
   currentModes?: ['wordnet' | 'clics', 'wordnet' | 'clics'];
   currentSenseIds?: [string | null, string | null];
   selectedLanguages?: string[];
-  hasResults?: boolean; // New prop to check if comparison was performed
+  hasResults?: boolean;
   className?: string;
   clicsMatches1?: { matches: ClicsMatch[] };
   clicsMatches2?: { matches: ClicsMatch[] };
@@ -29,8 +29,8 @@ interface Props {
 const STORAGE_KEY = 'concept-comparison-history';
 const MAX_HISTORY = 20;
 
-const ComparisonHistory: React.FC<Props> = ({ 
-  onSelect, 
+const ComparisonHistory: React.FC<Props> = ({
+  onSelect,
   currentConcepts,
   currentModes = ['wordnet', 'wordnet'],
   currentSenseIds = [null, null],
@@ -38,12 +38,11 @@ const ComparisonHistory: React.FC<Props> = ({
   hasResults = false,
   clicsMatches1,
   clicsMatches2,
-  className = "",
+  className = '',
 }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set([0]));
 
-  // Load history from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -55,9 +54,10 @@ const ComparisonHistory: React.FC<Props> = ({
     }
   }, []);
 
-  // Add current comparison to history only when we have results
   useEffect(() => {
-    if (!hasResults || !currentConcepts?.[0] || !currentConcepts?.[1]) return;
+    if (!hasResults || !currentConcepts?.[0] || !currentConcepts?.[1]) {
+      return;
+    }
 
     const newItem: HistoryItem = {
       concepts: currentConcepts,
@@ -65,28 +65,26 @@ const ComparisonHistory: React.FC<Props> = ({
       selectedLanguages,
       senseIds: currentSenseIds,
       modes: currentModes,
-      clicsMatches: currentModes[0] === 'clics' || currentModes[1] === 'clics' ? {
-        concept1: clicsMatches1?.matches.find(m => m.concept === currentConcepts[0]),
-        concept2: clicsMatches2?.matches.find(m => m.concept === currentConcepts[1])
-      } : undefined
+      clicsMatches:
+        currentModes[0] === 'clics' || currentModes[1] === 'clics'
+          ? {
+              concept1: clicsMatches1?.matches.find((match) => match.concept === currentConcepts[0]),
+              concept2: clicsMatches2?.matches.find((match) => match.concept === currentConcepts[1]),
+            }
+          : undefined,
     };
 
-    setHistory(prev => {
-      // Remove any exact duplicates (same concepts, languages, and modes)
-      const filtered = prev.filter(item => {
-        const sameConcepts = item.concepts[0] === currentConcepts[0] && 
-                           item.concepts[1] === currentConcepts[1];
-        const sameLanguages = JSON.stringify((item.selectedLanguages || []).sort()) === 
-                            JSON.stringify((selectedLanguages || []).sort());
-        const sameModes = item.modes[0] === currentModes[0] && 
-                         item.modes[1] === currentModes[1];
+    setHistory((prev) => {
+      const filtered = prev.filter((item) => {
+        const sameConcepts = item.concepts[0] === currentConcepts[0] && item.concepts[1] === currentConcepts[1];
+        const sameLanguages =
+          JSON.stringify((item.selectedLanguages || []).sort()) === JSON.stringify((selectedLanguages || []).sort());
+        const sameModes = item.modes[0] === currentModes[0] && item.modes[1] === currentModes[1];
         return !(sameConcepts && sameLanguages && sameModes);
       });
 
-      // Add new item at the start and limit total items
       const updated = [newItem, ...filtered].slice(0, MAX_HISTORY);
-      
-      // Save to localStorage
+
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       } catch (error) {
@@ -95,7 +93,7 @@ const ComparisonHistory: React.FC<Props> = ({
 
       return updated;
     });
-  }, [hasResults]); // Only trigger when hasResults changes
+  }, [clicsMatches1, clicsMatches2, currentConcepts, currentModes, currentSenseIds, hasResults, selectedLanguages]);
 
   const clearHistory = () => {
     setHistory([]);
@@ -103,7 +101,7 @@ const ComparisonHistory: React.FC<Props> = ({
   };
 
   const toggleExpand = (index: number) => {
-    setExpandedItems(prev => {
+    setExpandedItems((prev) => {
       const next = new Set(prev);
       if (next.has(index)) {
         next.delete(index);
@@ -123,87 +121,94 @@ const ComparisonHistory: React.FC<Props> = ({
 
   if (history.length === 0) {
     return (
-      <div className={`p-4 text-center text-gray-500 text-sm ${className}`}>
-        No comparison history yet
+      <div className={className}>
+        <div className="mb-4 flex items-center gap-2">
+          <Clock3 className="h-4 w-4 text-stone-500" />
+          <div>
+            <p className="atlas-label mb-1">History</p>
+            <h3 className="text-xl text-slate-900">Recent expeditions</h3>
+          </div>
+        </div>
+        <div className="rounded-[22px] border border-dashed border-stone-300 bg-stone-50/60 px-4 py-8 text-center text-sm text-slate-500">
+          No comparison history yet.
+        </div>
       </div>
     );
   }
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-gray-400" />
-          <h3 className="text-sm font-medium text-gray-900">
-            Recent Comparisons
-          </h3>
+          <Clock3 className="h-4 w-4 text-stone-500" />
+          <div>
+            <p className="atlas-label mb-1">History</p>
+            <h3 className="text-xl text-slate-900">Recent expeditions</h3>
+          </div>
         </div>
         <button
           onClick={clearHistory}
-          className="text-sm text-red-600 hover:text-red-800 flex items-center gap-1"
+          className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-red-800 transition-colors hover:bg-red-100"
         >
-          <Trash2 className="w-4 h-4" />
-          Clear History
+          <Trash2 className="h-3.5 w-3.5" />
+          Clear
         </button>
       </div>
 
-      <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2">
+      <div className="atlas-scroll max-h-[32rem] space-y-3 overflow-y-auto pr-1">
         {history.map((item, index) => {
           const date = new Date(item.timestamp);
           const isExpanded = expandedItems.has(index);
-          const isActive = currentConcepts && 
-            currentConcepts[0] === item.concepts[0] && 
+          const isActive =
+            currentConcepts &&
+            currentConcepts[0] === item.concepts[0] &&
             currentConcepts[1] === item.concepts[1] &&
-            JSON.stringify((selectedLanguages || []).sort()) === 
-            JSON.stringify((item.selectedLanguages || []).sort());
+            JSON.stringify((selectedLanguages || []).sort()) === JSON.stringify((item.selectedLanguages || []).sort());
 
           return (
-            <div 
+            <div
               key={generateItemKey(item)}
-              className={`
-                border rounded-lg transition-colors cursor-pointer
-                ${isActive 
-                  ? 'border-blue-300 bg-blue-50' 
-                  : 'border-gray-200 hover:border-blue-200 bg-white'
-                }
-              `}
+              className={[
+                'overflow-hidden rounded-[22px] border transition-all',
+                isActive
+                  ? 'border-sky-300 bg-sky-50/70 shadow-[0_16px_30px_rgba(49,88,111,0.12)]'
+                  : 'border-stone-200/80 bg-white/75 hover:border-stone-300 hover:bg-white',
+              ].join(' ')}
             >
-              <div 
-                className="p-3 flex items-center justify-between"
+              <button
                 onClick={() => toggleExpand(index)}
+                className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
               >
                 <div className="flex items-center gap-3">
-                  <ChevronRight 
-                    className={`w-4 h-4 text-gray-400 transition-transform
-                      ${isExpanded ? 'transform rotate-90' : ''}`}
+                  <ChevronRight
+                    className={`h-4 w-4 text-stone-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                   />
                   <div>
-                    <div className="font-medium">
-                      {item.concepts[0]} ↔ {item.concepts[1]}
+                    <div className="font-semibold text-slate-900">
+                      {item.concepts[0]} <span className="text-stone-400">vs</span> {item.concepts[1]}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
                       {date.toLocaleDateString()} {date.toLocaleTimeString()}
                     </div>
                   </div>
                 </div>
-              </div>
+                <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {item.selectedLanguages?.length || 0} langs
+                </span>
+              </button>
 
               {isExpanded && (
-                <div className="px-3 pb-3">
-                  <div className="text-sm text-gray-600 mb-2">
-                    <div>
-                      {item.selectedLanguages?.length || 0} languages selected
-                    </div>
-                    <div>
-                      Mode: {item.modes[0].toUpperCase()} ↔ {item.modes[1].toUpperCase()}
-                    </div>
+                <div className="border-t border-stone-200/70 px-4 pb-4 pt-3">
+                  <div className="mb-4 grid gap-2 text-sm text-slate-600">
+                    <div>Mode pair: {item.modes[0].toUpperCase()} x {item.modes[1].toUpperCase()}</div>
+                    <div>Language count: {item.selectedLanguages?.length || 0}</div>
                   </div>
                   <button
                     onClick={() => onSelect(item)}
-                    className="w-full py-2 text-sm text-blue-600 hover:text-blue-800 
-                      border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100"
                   >
-                    Restore this comparison
+                    <RotateCcw className="h-4 w-4" />
+                    Restore comparison
                   </button>
                 </div>
               )}

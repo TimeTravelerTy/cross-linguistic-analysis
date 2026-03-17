@@ -27,7 +27,11 @@ interface AreaColexifications {
 }
 
 interface AreaData {
-  embeddings: Array<{ language: string; similarity: number; variations: any[] }>;
+  embeddings: Array<{
+    language: string;
+    similarity: number;
+    variations: ComparisonResult['variation_similarities'];
+  }>;
   languages: string[];
   colexifications: FamilyColexifications;
 }
@@ -39,7 +43,11 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
 }) => {
   const areaResults = useMemo(() => {
     const grouped: Record<string, {
-      embeddings: Array<{ language: string; similarity: number; variations: any[] }>;
+      embeddings: Array<{
+        language: string;
+        similarity: number;
+        variations: ComparisonResult['variation_similarities'];
+      }>;
       languages: string[];
       colexifications: AreaColexifications;
     }> = {};
@@ -175,51 +183,52 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
 
   // Filter areas to only those with colexifications
   const areasWithColexifications = Object.entries(areaResults).filter(
-    ([_, data]) => hasColexifications(data)
+    ([area, data]) => Boolean(area) && hasColexifications(data)
   );
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Chart section remains the same */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="rounded-[24px] border border-stone-200/80 bg-white/78 p-6">
+        <p className="atlas-label mb-1">Area overview</p>
+        <h3 className="mb-4 text-2xl text-slate-900">
           Semantic Similarity by Linguistic Area
         </h3>
         <div style={{ width: '100%', height: 400 }} className="mt-4">
           <ResponsiveContainer>
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(100, 95, 82, 0.25)" />
               <XAxis 
                 dataKey="name"
                 interval={0}
                 angle={-45}
                 textAnchor="end"
                 height={60}
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: '#5b6470' }}
               />
               <YAxis
                 domain={[0, 100]}
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: '#5b6470' }}
                 label={{ 
                   value: 'Similarity %', 
                   angle: -90,
                   position: 'insideLeft',
-                  style: { textAnchor: 'middle' }
+                  style: { textAnchor: 'middle', fill: '#5b6470' }
                 }}
               />
               <Tooltip 
                 formatter={(value: number) => `${value.toFixed(1)}%`}
-                contentStyle={{ fontSize: 12 }}
+                contentStyle={{ fontSize: 12, borderRadius: 16, border: '1px solid rgba(212, 201, 181, 0.9)' }}
               />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12, color: '#5b6470' }} />
               <Bar 
                 dataKey="similarity" 
-                fill="#3b82f6"
+                fill="#245a73"
                 animationDuration={500}
                 label={{ 
                   position: 'top',
                   formatter: (value: number) => `${value.toFixed(1)}%`,
-                  fontSize: 12
+                  fontSize: 12,
+                  fill: '#42505e'
                 }}
               />
             </BarChart>
@@ -228,8 +237,9 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
       </div>
 
       {/* Pattern Analysis section */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="rounded-[24px] border border-stone-200/80 bg-white/78 p-6">
+        <p className="atlas-label mb-1">Pattern graphs</p>
+        <h3 className="mb-4 text-2xl text-slate-900">
           Area Pattern Analysis
         </h3>
         {areasWithColexifications.length > 0 ? (
@@ -246,7 +256,7 @@ export const AreaComparisonView: React.FC<AreaComparisonViewProps> = ({
             ))}
           </div>
         ) : (
-          <div className="text-center text-gray-500 py-8">
+          <div className="py-8 text-center text-slate-500">
             No colexification patterns found across linguistic areas
           </div>
         )}
