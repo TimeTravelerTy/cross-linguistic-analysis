@@ -1,5 +1,16 @@
 import axios, { AxiosError } from 'axios';
-import { ComparisonData, ComparisonResult, ProgressCallback, ComparisonProgress } from '@/types';
+import {
+  ComparisonData,
+  ComparisonResult,
+  ProgressCallback,
+  ComparisonProgress,
+  ConceptAnchor,
+  FamilyInfo,
+  StudyRequest,
+  StudyResult,
+  StudyProgress,
+  SemanticMapResponse,
+} from '@/types';
 
 const API_URL = process.env.NODE_ENV === 'production' 
   ? 'https://cross-linguistic-analysis-production.up.railway.app'
@@ -109,7 +120,80 @@ export const apiClient = {
     api.get('/clics-concepts').then(res => res.data),
 
   compareWordsWithProgress,
-  
+
+  // Atlas API — Concepticon-anchored multi-concept endpoints
+  searchConcepts: (q: string, limit = 12): Promise<ConceptAnchor[]> =>
+    api.get('/concepts', { params: { q, limit } }).then(res => res.data),
+
+  getConceptNeighbors: (concepticonId: string) =>
+    api.get(`/concepts/${encodeURIComponent(concepticonId)}/neighbors`).then(res => res.data),
+
+  getSemanticMap: (conceptIdsOrLabels: string[], maxNeighbors = 15, family?: string): Promise<SemanticMapResponse> =>
+    api
+      .get('/semantic-map', {
+        params: {
+          concepts: conceptIdsOrLabels.join(','),
+          max_neighbors: maxNeighbors,
+          ...(family ? { family } : {}),
+        },
+      })
+      .then(res => res.data),
+
+  getDatasetVersions: (): Promise<Record<string, string>> =>
+    api.get('/dataset-versions').then(res => res.data),
+
+  getFamilies: (): Promise<FamilyInfo[]> =>
+    api.get('/families').then(res => res.data),
+};
+
+/**
+ * Run a multi-concept Atlas study with SSE streaming.
+ * Calls onProgress with each progress update; resolves with the final StudyResult.
+ */
+export const runStudyWithProgress = async (
+  request: StudyRequest,
+  onProgress: (progress: number, step: string) => void,
+): Promise<StudyResult> => {
+  const response = await fetch(`${API_URL}/study-progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Study request failed: ${response.statusText}`);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const update = JSON.parse(line.slice(6)) as StudyProgress;
+
+        if (update.error) throw new Error(update.error);
+
+        onProgress(update.progress ?? 0, update.step ?? '');
+
+        if (update.result) return update.result;
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith('Study')) throw e;
+        console.error('SSE parse error:', e);
+      }
+    }
+  }
+
+  throw new Error('Study stream ended without a result');
 };
 
 export const getSemanticChains = async (

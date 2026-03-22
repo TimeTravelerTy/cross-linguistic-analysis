@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import List, Dict, Optional, AsyncGenerator
@@ -6,12 +6,17 @@ from app.services.disambiguation import DisambiguationService
 from app.services.translation import TranslationService
 from app.services.embedding import EmbeddingService
 from app.models.schemas import (
-    WordSense, 
-    ComparisonRequest, 
+    WordSense,
+    ComparisonRequest,
     ComparisonResult,
+    ConceptAnchor,
+    StudyRequest,
+    SemanticMapResponse,
 )
 from app.services.clics import ClicsService
-from app.models.schemas import ComparisonResult
+from app.services.concept_registry import ConceptRegistryService
+from app.services.colexification import ColexificationService
+from app.services.study_pipeline import StudyPipelineService
 from dotenv import load_dotenv
 import logging
 import json
@@ -22,12 +27,26 @@ load_dotenv()
 
 clics_service = ClicsService()
 
-app = FastAPI()
+app = FastAPI(title="Concept Atlas API")
 
 # Initialize services
 disambiguation_service = DisambiguationService()
 translation_service = TranslationService()
 embedding_service = EmbeddingService()
+
+# Atlas services (new)
+try:
+    registry_service = ConceptRegistryService()
+    colex_service = ColexificationService(clics_service)
+    study_pipeline = StudyPipelineService(colex_service, registry_service, translation_service)
+    _atlas_available = True
+    print("Atlas services initialised successfully")
+except Exception as e:
+    registry_service = None  # type: ignore
+    colex_service = None  # type: ignore
+    study_pipeline = None  # type: ignore
+    _atlas_available = False
+    print(f"Atlas services unavailable (run scripts/run_ingestion.py first): {e}")
 
 # Add CORS middleware
 app.add_middleware(
@@ -474,6 +493,122 @@ async def get_clics_concepts():
             status_code=500, 
             detail=f"Error getting CLICS concepts: {str(e)}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Atlas API endpoints (multi-concept, Concepticon-anchored)
+# ---------------------------------------------------------------------------
+
+def _require_atlas():
+    if not _atlas_available:
+        raise HTTPException(
+            status_code=503,
+            detail="Atlas services not available. Run backend/scripts/run_ingestion.py first.",
+        )
+
+
+@app.get("/concepts", response_model=List[ConceptAnchor])
+async def search_concepts(
+    q: str = Query(..., min_length=1, description="Search query"),
+    limit: int = Query(12, ge=1, le=50),
+):
+    """
+    Search the Concepticon registry by concept label.
+    Returns ConceptAnchor objects with CLICS linkage info.
+    """
+    _require_atlas()
+    return registry_service.search(q, limit=limit)
+
+
+@app.get("/concepts/{concepticon_id}/neighbors")
+async def get_concept_neighbors(
+    concepticon_id: str,
+    limit: int = Query(10, ge=1, le=30),
+):
+    """Return concepts in the same semantic field (quick neighbor approximation)."""
+    _require_atlas()
+    anchor = registry_service.get_by_id(concepticon_id)
+    if not anchor:
+        raise HTTPException(status_code=404, detail="Concept not found")
+    neighbors = registry_service.get_neighbors(concepticon_id, limit=limit)
+    return {"anchor": anchor, "neighbors": neighbors}
+
+
+@app.get("/dataset-versions")
+async def get_dataset_versions():
+    """Return versions of all ingested data sources."""
+    _require_atlas()
+    return registry_service.get_dataset_versions()
+
+
+@app.get("/semantic-map", response_model=SemanticMapResponse)
+async def get_semantic_map(
+    concepts: str = Query(..., description="Comma-separated Concepticon IDs or labels"),
+    max_neighbors: int = Query(15, ge=1, le=40),
+    family: Optional[str] = Query(None, description="Filter to a specific language family"),
+):
+    """
+    Return the CLICS colexification neighborhood graph for the selected concepts.
+    When family is given, counts and neighbors are filtered to that family only.
+    """
+    _require_atlas()
+    raw_ids = [c.strip() for c in concepts.split(",") if c.strip()]
+    if not raw_ids or len(raw_ids) > 6:
+        raise HTTPException(status_code=400, detail="Provide 1–6 concept IDs or labels")
+
+    anchors: list[ConceptAnchor] = []
+    for raw in raw_ids:
+        anchor = registry_service.get_by_id(raw) or registry_service.get_by_label(raw.upper())
+        if not anchor:
+            raise HTTPException(status_code=404, detail=f"Concept not found: {raw!r}")
+        anchors.append(anchor)
+
+    return colex_service.get_semantic_map(
+        anchors, max_neighbors=max_neighbors, family_filter=family or None
+    )
+
+
+async def _stream_study(request: StudyRequest):
+    """Generator for SSE-streamed study results."""
+    try:
+        async for update in study_pipeline.stream(request):
+            # Serialize Pydantic models before JSON encoding
+            if "result" in update and hasattr(update["result"], "model_dump"):
+                update = {**update, "result": update["result"].model_dump()}
+            yield f"data: {json.dumps(update, default=str)}\n\n"
+            await asyncio.sleep(0)
+    except Exception as e:
+        logger.error(f"Study pipeline error: {e}", exc_info=True)
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+
+@app.get("/families")
+async def get_families():
+    """Return all language family names present in the CLICS graph, sorted by language count."""
+    _require_atlas()
+    family_map = clics_service.family_language_map
+    families = [
+        {"name": family, "language_count": len(langs)}
+        for family, langs in family_map.items()
+    ]
+    families.sort(key=lambda x: -x["language_count"])
+    return families
+
+
+@app.post("/study-progress")
+async def run_study_with_progress(request: StudyRequest):
+    """
+    Run a multi-concept cross-linguistic study with SSE streaming progress.
+    Accepts 2–6 ConceptAnchor objects and an optional list of family names.
+    """
+    _require_atlas()
+    if not (2 <= len(request.concepts) <= 6):
+        raise HTTPException(status_code=400, detail="Provide 2–6 concepts")
+
+    return StreamingResponse(
+        _stream_study(request),
+        media_type="text/event-stream",
+    )
 
 
 @app.get("/test-clics/{concept}")

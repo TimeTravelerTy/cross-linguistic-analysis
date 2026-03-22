@@ -1,55 +1,62 @@
 import React, { useState } from 'react';
-import { GitBranch, Globe2, LanguagesIcon } from 'lucide-react';
-import { AreaComparisonView } from './AreaComparisonView';
-import { ComparisonResults } from './ComparisonResults';
-import { FamilyComparisonView } from './FamilyComparisonView';
-import { ComparisonResult, Languages } from '../types';
+import { GitBranch, Globe2, Grid3X3, Network } from 'lucide-react';
+import { StudyResult } from '../types';
+import { MergeSplitMatrix } from './MergeSplitMatrix';
+import { FamilyPatternsView } from './FamilyPatternsView';
+import { LanguageDetailsView } from './LanguageDetailsView';
+import { ColexificationNetworkView } from './ColexificationNetworkView';
 
-interface ComparisonContainerProps {
-  results: Record<string, ComparisonResult>;
-  languages: Languages;
-  originalConcepts: [string, string];
+interface Props {
+  studyResult: StudyResult;
 }
 
-const views = [
-  { id: 'language', label: 'Language View', icon: LanguagesIcon },
-  { id: 'family', label: 'Family View', icon: GitBranch },
-  { id: 'area', label: 'Area View', icon: Globe2 },
+const TABS = [
+  { id: 'family', label: 'Family Patterns', icon: GitBranch },
+  { id: 'network', label: 'Concept Network', icon: Network },
+  { id: 'details', label: 'Language Details', icon: Globe2 },
+  { id: 'matrix', label: 'Merge/Split Matrix', icon: Grid3X3 },
 ] as const;
 
-export const ComparisonContainer: React.FC<ComparisonContainerProps> = ({ results, languages, originalConcepts }) => {
-  const [activeView, setActiveView] = useState<'language' | 'family' | 'area'>('language');
+type TabId = (typeof TABS)[number]['id'];
+
+export const ComparisonContainer: React.FC<Props> = ({ studyResult }) => {
+  const [activeTab, setActiveTab] = useState<TabId>('family');
+
+  const conceptLabels = studyResult.concepts.map(c => c.label).join(' · ');
+  const totalFamilies = Object.values(studyResult.family_profiles).filter(
+    f => Object.values(f.pair_rates).some(r => r.direct_count > 0)
+  ).length;
+  const totalLangs = Object.keys(studyResult.language_partitions).length;
 
   return (
     <section className="atlas-panel p-6 md:p-8">
+      {/* Header */}
       <div className="mb-6 flex flex-col gap-4 border-b border-stone-200/70 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="atlas-kicker mb-2">Results</p>
-          <h2 className="atlas-section-title">
-            {originalConcepts[0]} <span className="text-stone-400">vs</span> {originalConcepts[1]}
-          </h2>
+          <p className="atlas-kicker mb-2">Study results</p>
+          <h2 className="atlas-section-title">{conceptLabels}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Inspect translation behavior, semantic proximity, and higher-order patterns across the selected
-            languages.
+            Attested colexification patterns across {totalFamilies} families in the CLICS database.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="atlas-chip">{Object.keys(results).length} language profiles</span>
-          <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-900">
-            Atlas report
+          <span className="atlas-chip">{totalFamilies} families</span>
+          {totalLangs > 0 && <span className="atlas-chip">{totalLangs} languages</span>}
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900">
+            CLICS evidence
           </span>
         </div>
       </div>
 
+      {/* Tab bar */}
       <div className="mb-6 inline-flex flex-wrap gap-2 rounded-full border border-stone-200/80 bg-white/80 p-2">
-        {views.map((view) => {
-          const Icon = view.icon;
-          const isActive = activeView === view.id;
-
+        {TABS.map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
-              key={view.id}
-              onClick={() => setActiveView(view.id)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={[
                 'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all',
                 isActive
@@ -58,21 +65,34 @@ export const ComparisonContainer: React.FC<ComparisonContainerProps> = ({ result
               ].join(' ')}
             >
               <Icon className="h-4 w-4" />
-              {view.label}
+              {tab.label}
             </button>
           );
         })}
       </div>
 
+      {/* Active view */}
       <div>
-        {activeView === 'language' ? (
-          <ComparisonResults results={results} />
-        ) : activeView === 'family' ? (
-          <FamilyComparisonView results={results} languages={languages} originalConcepts={originalConcepts} />
-        ) : (
-          <AreaComparisonView results={results} languages={languages} originalConcepts={originalConcepts} />
-        )}
+        {activeTab === 'family' && <FamilyPatternsView studyResult={studyResult} />}
+        {activeTab === 'network' && <ColexificationNetworkView studyResult={studyResult} />}
+        {activeTab === 'details' && <LanguageDetailsView studyResult={studyResult} />}
+        {activeTab === 'matrix' && <MergeSplitMatrix studyResult={studyResult} />}
       </div>
+
+      {/* Data provenance */}
+      {Object.keys(studyResult.dataset_versions).length > 0 && (
+        <div className="mt-8 flex flex-wrap gap-2 border-t border-stone-200/60 pt-4">
+          <span className="text-xs uppercase tracking-[0.14em] text-slate-400">Data:</span>
+          {Object.entries(studyResult.dataset_versions).map(([name, version]) => (
+            <span
+              key={name}
+              className="rounded bg-stone-100 px-2 py-0.5 font-mono text-xs text-slate-500"
+            >
+              {name} {version}
+            </span>
+          ))}
+        </div>
+      )}
     </section>
   );
 };

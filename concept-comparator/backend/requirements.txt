@@ -8,3 +8,6 @@ networkx==3.4.2; python_version >= "3.10"
 networkx==3.2.1; python_version < "3.10"
 nltk==3.9.1
 pydantic==2.10.2
+# Atlas data ingestion + graph embedding
+node2vec>=0.4.6
+wn>=0.9.0

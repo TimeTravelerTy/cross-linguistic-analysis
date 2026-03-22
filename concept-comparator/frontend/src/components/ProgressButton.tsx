@@ -25,7 +25,7 @@ const ProgressButton = ({ onClick, disabled, isLoading, progress, children }: Pr
         style={{ width: `${progress}%` }}
       />
     )}
-    <div className="relative">{isLoading ? `Comparing ${progress}%` : children}</div>
+    <div className="relative">{isLoading ? `Running… ${Math.round(progress ?? 0)}%` : children}</div>
   </button>
 );
 

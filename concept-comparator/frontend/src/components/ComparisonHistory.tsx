@@ -1,29 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight, Clock3, RotateCcw, Trash2 } from 'lucide-react';
-import { ClicsMatch } from '../types';
 
 export interface HistoryItem {
-  concepts: [string, string];
+  concepts: string[];
   timestamp: number;
-  selectedLanguages: string[];
-  senseIds: [string | null, string | null];
-  modes: ['wordnet' | 'clics', 'wordnet' | 'clics'];
-  clicsMatches?: {
-    concept1?: ClicsMatch;
-    concept2?: ClicsMatch;
-  };
+  selectedFamilies: string[];
+  // Legacy fields for backward compat
+  selectedLanguages?: string[];
 }
 
 interface Props {
   onSelect: (item: HistoryItem) => void;
-  currentConcepts?: [string, string];
-  currentModes?: ['wordnet' | 'clics', 'wordnet' | 'clics'];
-  currentSenseIds?: [string | null, string | null];
-  selectedLanguages?: string[];
+  currentConcepts?: string[];
+  selectedFamilies?: string[];
   hasResults?: boolean;
   className?: string;
-  clicsMatches1?: { matches: ClicsMatch[] };
-  clicsMatches2?: { matches: ClicsMatch[] };
 }
 
 const STORAGE_KEY = 'concept-comparison-history';
@@ -32,12 +23,8 @@ const MAX_HISTORY = 20;
 const ComparisonHistory: React.FC<Props> = ({
   onSelect,
   currentConcepts,
-  currentModes = ['wordnet', 'wordnet'],
-  currentSenseIds = [null, null],
-  selectedLanguages = [],
+  selectedFamilies = [],
   hasResults = false,
-  clicsMatches1,
-  clicsMatches2,
   className = '',
 }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -47,7 +34,12 @@ const ComparisonHistory: React.FC<Props> = ({
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setHistory(JSON.parse(stored));
+        // Migrate legacy items that used selectedLanguages
+        const items = JSON.parse(stored) as any[];
+        setHistory(items.map(item => ({
+          ...item,
+          selectedFamilies: item.selectedFamilies ?? [],
+        })));
       }
     } catch (error) {
       console.error('Error loading history:', error);
@@ -55,32 +47,22 @@ const ComparisonHistory: React.FC<Props> = ({
   }, []);
 
   useEffect(() => {
-    if (!hasResults || !currentConcepts?.[0] || !currentConcepts?.[1]) {
+    if (!hasResults || !currentConcepts || currentConcepts.length < 2) {
       return;
     }
 
     const newItem: HistoryItem = {
       concepts: currentConcepts,
       timestamp: Date.now(),
-      selectedLanguages,
-      senseIds: currentSenseIds,
-      modes: currentModes,
-      clicsMatches:
-        currentModes[0] === 'clics' || currentModes[1] === 'clics'
-          ? {
-              concept1: clicsMatches1?.matches.find((match) => match.concept === currentConcepts[0]),
-              concept2: clicsMatches2?.matches.find((match) => match.concept === currentConcepts[1]),
-            }
-          : undefined,
+      selectedFamilies,
     };
 
     setHistory((prev) => {
       const filtered = prev.filter((item) => {
-        const sameConcepts = item.concepts[0] === currentConcepts[0] && item.concepts[1] === currentConcepts[1];
-        const sameLanguages =
-          JSON.stringify((item.selectedLanguages || []).sort()) === JSON.stringify((selectedLanguages || []).sort());
-        const sameModes = item.modes[0] === currentModes[0] && item.modes[1] === currentModes[1];
-        return !(sameConcepts && sameLanguages && sameModes);
+        const sameConcepts = JSON.stringify([...(item.concepts || [])].sort()) === JSON.stringify([...currentConcepts].sort());
+        const sameFamilies =
+          JSON.stringify((item.selectedFamilies || []).sort()) === JSON.stringify((selectedFamilies || []).sort());
+        return !(sameConcepts && sameFamilies);
       });
 
       const updated = [newItem, ...filtered].slice(0, MAX_HISTORY);
@@ -93,7 +75,7 @@ const ComparisonHistory: React.FC<Props> = ({
 
       return updated;
     });
-  }, [clicsMatches1, clicsMatches2, currentConcepts, currentModes, currentSenseIds, hasResults, selectedLanguages]);
+  }, [currentConcepts, hasResults, selectedFamilies]);
 
   const clearHistory = () => {
     setHistory([]);
@@ -114,9 +96,7 @@ const ComparisonHistory: React.FC<Props> = ({
 
   const generateItemKey = (item: HistoryItem) => {
     const concepts = item.concepts?.join('-') || 'no-concepts';
-    const languages = (item.selectedLanguages || []).sort().join('-') || 'no-languages';
-    const modes = item.modes?.join('-') || 'no-modes';
-    return `${concepts}-${languages}-${modes}-${item.timestamp}`;
+    return `${concepts}-${item.timestamp}`;
   };
 
   if (history.length === 0) {
@@ -161,9 +141,10 @@ const ComparisonHistory: React.FC<Props> = ({
           const isExpanded = expandedItems.has(index);
           const isActive =
             currentConcepts &&
-            currentConcepts[0] === item.concepts[0] &&
-            currentConcepts[1] === item.concepts[1] &&
-            JSON.stringify((selectedLanguages || []).sort()) === JSON.stringify((item.selectedLanguages || []).sort());
+            JSON.stringify([...currentConcepts].sort()) === JSON.stringify([...(item.concepts || [])].sort()) &&
+            JSON.stringify((selectedFamilies || []).sort()) === JSON.stringify((item.selectedFamilies || []).sort());
+
+          const familyCount = item.selectedFamilies?.length || 0;
 
           return (
             <div
@@ -185,7 +166,7 @@ const ComparisonHistory: React.FC<Props> = ({
                   />
                   <div>
                     <div className="font-semibold text-slate-900">
-                      {item.concepts[0]} <span className="text-stone-400">vs</span> {item.concepts[1]}
+                      {(item.concepts || []).join(' · ')}
                     </div>
                     <div className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
                       {date.toLocaleDateString()} {date.toLocaleTimeString()}
@@ -193,22 +174,23 @@ const ComparisonHistory: React.FC<Props> = ({
                   </div>
                 </div>
                 <span className="inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {item.selectedLanguages?.length || 0} langs
+                  {familyCount > 0 ? `${familyCount} fams` : 'all fams'}
                 </span>
               </button>
 
               {isExpanded && (
                 <div className="border-t border-stone-200/70 px-4 pb-4 pt-3">
-                  <div className="mb-4 grid gap-2 text-sm text-slate-600">
-                    <div>Mode pair: {item.modes[0].toUpperCase()} x {item.modes[1].toUpperCase()}</div>
-                    <div>Language count: {item.selectedLanguages?.length || 0}</div>
-                  </div>
+                  <p className="mb-3 text-sm text-slate-500">
+                    {familyCount > 0
+                      ? `${familyCount} families selected`
+                      : 'All CLICS families'}
+                  </p>
                   <button
                     onClick={() => onSelect(item)}
                     className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-900 transition-colors hover:bg-sky-100"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    Restore comparison
+                    Restore study
                   </button>
                 </div>
               )}
