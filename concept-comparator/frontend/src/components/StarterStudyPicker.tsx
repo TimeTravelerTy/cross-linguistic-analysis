@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { ConceptAnchor } from '../types';

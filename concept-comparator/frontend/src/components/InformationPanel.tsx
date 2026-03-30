@@ -10,23 +10,23 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ className = '' }) => {
   return (
     <div className={`atlas-panel p-6 ${className}`}>
       <div className="mb-6 flex items-start gap-3">
-        <div className="rounded-full bg-sky-100 p-2 text-sky-900">
+        <div className="rounded-full bg-sky-100 p-2 text-sky-950">
           <Info className="h-5 w-5" />
         </div>
         <div>
           <p className="atlas-label mb-1">Reference</p>
-          <h2 className="text-2xl text-slate-900">Reading the results</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Everything shown comes from attested cross-linguistic data — no AI translations or similarity scores.
+          <h2 className="text-2xl text-slate-950">Reading the results</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            Use this panel as a compact guide to the concepts, evidence, and result views.
           </p>
         </div>
       </div>
 
       <Accordion type="single" collapsible className="w-full space-y-3">
         <AccordionItem value="concepts" className="rounded-[20px] border border-stone-200/80 bg-white/70 px-4">
-          <AccordionTrigger className="text-base font-semibold text-slate-900">Concepts &amp; Concepticon</AccordionTrigger>
+          <AccordionTrigger className="text-base font-semibold text-slate-950">Concepts &amp; Concepticon</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-3 pb-2 pt-1 text-sm leading-6 text-slate-600">
+            <div className="space-y-3 pb-2 pt-1 text-sm leading-6 text-slate-700">
               <div className="flex gap-3">
                 <BookOpen className="mt-1 h-5 w-5 flex-shrink-0 text-sky-700" />
                 <div>
@@ -50,9 +50,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ className = '' }) => {
         </AccordionItem>
 
         <AccordionItem value="colex" className="rounded-[20px] border border-stone-200/80 bg-white/70 px-4">
-          <AccordionTrigger className="text-base font-semibold text-slate-900">What is colexification?</AccordionTrigger>
+          <AccordionTrigger className="text-base font-semibold text-slate-950">What is colexification?</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-3 pb-2 pt-1 text-sm leading-6 text-slate-600">
+            <div className="space-y-3 pb-2 pt-1 text-sm leading-6 text-slate-700">
               <div className="flex gap-3">
                 <Globe2 className="mt-1 h-5 w-5 flex-shrink-0 text-sky-700" />
                 <div>
@@ -81,9 +81,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ className = '' }) => {
         </AccordionItem>
 
         <AccordionItem value="views" className="rounded-[20px] border border-stone-200/80 bg-white/70 px-4">
-          <AccordionTrigger className="text-base font-semibold text-slate-900">Understanding the views</AccordionTrigger>
+          <AccordionTrigger className="text-base font-semibold text-slate-950">Understanding the views</AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-4 pb-2 pt-1 text-sm leading-6 text-slate-600">
+            <div className="space-y-4 pb-2 pt-1 text-sm leading-6 text-slate-700">
               <div className="flex gap-3">
                 <GitGraph className="mt-1 h-5 w-5 flex-shrink-0 text-sky-700" />
                 <div>
@@ -116,13 +116,13 @@ const InfoPanel: React.FC<InfoPanelProps> = ({ className = '' }) => {
         </AccordionItem>
 
         <AccordionItem value="families" className="rounded-[20px] border border-stone-200/80 bg-white/70 px-4">
-          <AccordionTrigger className="text-base font-semibold text-slate-900">Language families</AccordionTrigger>
+          <AccordionTrigger className="text-base font-semibold text-slate-950">Language families</AccordionTrigger>
           <AccordionContent>
-            <div className="pb-2 pt-1 text-sm leading-6 text-slate-600">
+            <div className="pb-2 pt-1 text-sm leading-6 text-slate-700">
               <p>
-                The family filter is <span className="font-medium text-slate-800">optional</span>. Without selecting any families,
-                the Family Patterns view shows all CLICS data (hundreds of families). Selecting specific families
-                adds individual language evidence to the Language Details tab — only languages that colexify appear.
+                The family filter is optional. Without selecting any families, the Family Patterns
+                view shows the full CLICS sample. Selecting specific families narrows the detailed
+                language evidence in the Language Details tab.
               </p>
               <p className="mt-2">
                 Family membership follows CLICS's own classification, which is based on Glottolog.

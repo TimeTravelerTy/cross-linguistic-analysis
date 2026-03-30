@@ -106,7 +106,7 @@ class StudyPipelineService:
         )
 
         # -----------------------------------------------------------------
-        # Step 3: Language partitions (from selected families only)
+        # Step 3: Language partitions (selected families, or all attesting families by default)
         # -----------------------------------------------------------------
         yield {"progress": 70, "step": "Computing language partitions …"}
         await asyncio.sleep(0)
@@ -115,7 +115,9 @@ class StudyPipelineService:
             anchors, request.families, family_profiles
         )
 
-        colex_embeddings: dict = {}  # embeddings not used in current UI
+        colex_embeddings = self._registry.get_embeddings(
+            [anchor.concepticon_id for anchor in anchors]
+        )
         translations: Optional[dict[str, list[str]]] = None
 
         # -----------------------------------------------------------------

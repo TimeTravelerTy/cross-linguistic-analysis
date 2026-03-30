@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { GitBranch, Globe2, Grid3X3, Network } from 'lucide-react';
+import { GitBranch, Globe2, Network } from 'lucide-react';
 import { StudyResult } from '../types';
-import { MergeSplitMatrix } from './MergeSplitMatrix';
 import { FamilyPatternsView } from './FamilyPatternsView';
 import { LanguageDetailsView } from './LanguageDetailsView';
 import { ColexificationNetworkView } from './ColexificationNetworkView';
@@ -14,7 +13,6 @@ const TABS = [
   { id: 'family', label: 'Family Patterns', icon: GitBranch },
   { id: 'network', label: 'Concept Network', icon: Network },
   { id: 'details', label: 'Language Details', icon: Globe2 },
-  { id: 'matrix', label: 'Merge/Split Matrix', icon: Grid3X3 },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -76,7 +74,6 @@ export const ComparisonContainer: React.FC<Props> = ({ studyResult }) => {
         {activeTab === 'family' && <FamilyPatternsView studyResult={studyResult} />}
         {activeTab === 'network' && <ColexificationNetworkView studyResult={studyResult} />}
         {activeTab === 'details' && <LanguageDetailsView studyResult={studyResult} />}
-        {activeTab === 'matrix' && <MergeSplitMatrix studyResult={studyResult} />}
       </div>
 
       {/* Data provenance */}

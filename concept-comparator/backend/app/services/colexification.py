@@ -461,7 +461,7 @@ class ColexificationService:
                     profiles[family] = {
                         "total_languages": total_in_family,
                         "pair_rates": {},
-                        "is_selected": family in selected_families,
+                        "is_selected": not selected_families or family in selected_families,
                     }
                 total_in_family = len(family_map.get(family, set()))
                 n_direct = len(attesting_langs)
@@ -484,15 +484,14 @@ class ColexificationService:
     ) -> dict[str, LanguagePartition]:
         """
         Derive per-language partitions from already-computed family profiles.
-        Only includes CLICS languages in selected_families that attest colexifications.
+        Includes attesting languages from the selected families, or all attesting
+        families when no family filter is applied.
         merged_groups stores concepticon_ids (for frontend matching).
         """
-        if not selected_families:
-            return {}
-
         partitions: dict[str, LanguagePartition] = {}
+        families_to_include = selected_families or list(family_profiles.keys())
 
-        for family in selected_families:
+        for family in families_to_include:
             if family not in family_profiles:
                 continue
             pair_rates = family_profiles[family].get("pair_rates", {})

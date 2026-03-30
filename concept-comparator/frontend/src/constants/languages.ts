@@ -104,18 +104,25 @@ export const LANGUAGE_CODES_TO_NAMES: Record<string, string> = {
   'mlt': 'Maltese'
 };
   
-  // Add reverse mapping for convenience
-  export const LANGUAGE_NAMES_TO_CODES = Object.entries(LANGUAGE_CODES_TO_NAMES)
-    .reduce((acc, [code, name]) => ({
-      ...acc,
-      [name]: code
-    }), {} as Record<string, string>);
-  
-  // Helper functions
-  export const getLanguageName = (code: string): string => {
-    return LANGUAGE_CODES_TO_NAMES[code] || code;
-  };
-  
-  export const getLanguageCode = (name: string): string => {
-    return LANGUAGE_NAMES_TO_CODES[name] || name;
-  };
+// Add reverse mapping for convenience
+export const LANGUAGE_NAMES_TO_CODES = Object.entries(LANGUAGE_CODES_TO_NAMES)
+  .reduce((acc, [code, name]) => ({
+    ...acc,
+    [name]: code
+  }), {} as Record<string, string>);
+
+// Helper functions
+export const getLanguageName = (code: string): string => {
+  return LANGUAGE_CODES_TO_NAMES[code] || code;
+};
+
+export const getReadableLanguageName = (code: string, explicitName?: string): string => {
+  if (explicitName && explicitName !== code) {
+    return explicitName;
+  }
+  return getLanguageName(code);
+};
+
+export const getLanguageCode = (name: string): string => {
+  return LANGUAGE_NAMES_TO_CODES[name] || name;
+};

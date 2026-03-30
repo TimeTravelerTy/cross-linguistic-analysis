@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ConceptAnchor, StudyResult } from '../types';
+import { getReadableLanguageName } from '../constants/languages';
 
 const SLOT_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
@@ -14,6 +15,8 @@ const MERGE_COLORS = [
 interface Props {
   studyResult: StudyResult;
 }
+
+const INITIAL_LANGUAGE_LIMIT = 48;
 
 function assignGroups(concepts: ConceptAnchor[], merged_groups: string[][]): number[] {
   const conceptIds = concepts.map(c => c.concepticon_id);
@@ -44,11 +47,12 @@ function getMergedGroupIndices(groups: number[]): Set<number> {
 /**
  * Per-language cards showing how concepts are merged or split.
  * Driven by language_partitions derived from CLICS attesting languages.
- * Only shows languages in selected families that actually colexify.
+ * Only shows languages that attest at least one relevant colexification.
  */
 export function LanguageDetailsView({ studyResult }: Props) {
   const { concepts, language_partitions } = studyResult;
   const [familyFilter, setFamilyFilter] = useState('');
+  const [visibleCount, setVisibleCount] = useState(INITIAL_LANGUAGE_LIMIT);
 
   const families = useMemo(() => {
     const f = new Set<string>();
@@ -61,15 +65,32 @@ export function LanguageDetailsView({ studyResult }: Props) {
   const entries = useMemo(() => {
     let all = Object.entries(language_partitions);
     if (familyFilter) all = all.filter(([, p]) => p.family === familyFilter);
-    return all.sort((a, b) => a[1].family.localeCompare(b[1].family) || a[0].localeCompare(b[0]));
+    return all.sort((a, b) => {
+      const familyOrder = a[1].family.localeCompare(b[1].family);
+      if (familyOrder !== 0) {
+        return familyOrder;
+      }
+      return getReadableLanguageName(a[0], a[1].language_name).localeCompare(
+        getReadableLanguageName(b[0], b[1].language_name),
+      );
+    });
   }, [language_partitions, familyFilter]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_LANGUAGE_LIMIT);
+  }, [familyFilter, language_partitions]);
+
+  const visibleEntries = useMemo(
+    () => entries.slice(0, visibleCount),
+    [entries, visibleCount],
+  );
 
   if (Object.keys(language_partitions).length === 0) {
     return (
       <div className="rounded-[22px] border border-dashed border-stone-300 bg-stone-50/60 px-4 py-12 text-center">
         <p className="mb-2 text-sm font-medium text-slate-600">No individual language data</p>
         <p className="text-sm text-slate-400">
-          Select one or more language families above to see which specific languages attest colexifications.
+          No attesting languages were found for this concept set in the current sample.
         </p>
       </div>
     );
@@ -84,18 +105,21 @@ export function LanguageDetailsView({ studyResult }: Props) {
           onChange={e => setFamilyFilter(e.target.value)}
           className="rounded-full border border-stone-200 bg-white/80 px-4 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
         >
-          <option value="">All selected families ({entries.length} languages)</option>
+          <option value="">All families ({entries.length} attesting languages)</option>
           {families.map(f => (
             <option key={f} value={f}>{f}</option>
           ))}
         </select>
-        <p className="text-xs text-slate-400">
-          Showing only languages that attest at least one colexification in CLICS.
-        </p>
+        <p className="text-xs text-slate-400">Only languages with at least one attested colexification are shown.</p>
+        {entries.length > visibleEntries.length && (
+          <p className="text-xs text-slate-400">
+            Showing {visibleEntries.length} of {entries.length} languages.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {entries.map(([langCode, partition]) => {
+        {visibleEntries.map(([langCode, partition]) => {
           const groups = assignGroups(concepts, partition.merged_groups);
           const mergedIndices = getMergedGroupIndices(groups);
           const groupToColorIdx: Record<number, number> = {};
@@ -106,6 +130,7 @@ export function LanguageDetailsView({ studyResult }: Props) {
 
           const mergedPairCount = [...mergedIndices].length;
           const isAllSplit = mergedIndices.size === 0;
+          const languageName = getReadableLanguageName(langCode, partition.language_name);
 
           return (
             <div
@@ -116,7 +141,8 @@ export function LanguageDetailsView({ studyResult }: Props) {
               <div className="mb-4 flex items-start justify-between gap-2">
                 <div>
                   <p className="atlas-label mb-0.5">{partition.family}</p>
-                  <p className="font-mono text-sm font-semibold text-slate-800">{langCode}</p>
+                  <h3 className="text-lg font-semibold text-slate-900">{languageName}</h3>
+                  <p className="font-mono text-xs text-slate-400">{langCode}</p>
                 </div>
                 <span
                   className={`mt-0.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -172,6 +198,17 @@ export function LanguageDetailsView({ studyResult }: Props) {
           );
         })}
       </div>
+
+      {entries.length > visibleEntries.length && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => setVisibleCount(prev => prev + INITIAL_LANGUAGE_LIMIT)}
+            className="rounded-full border border-stone-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-stone-50"
+          >
+            Show more languages
+          </button>
+        </div>
+      )}
 
       {entries.length === 0 && familyFilter && (
         <div className="rounded-[22px] border border-dashed border-stone-300 bg-stone-50/60 px-4 py-10 text-center text-sm text-slate-400">

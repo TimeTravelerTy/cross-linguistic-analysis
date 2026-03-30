@@ -11,6 +11,7 @@ import {
   LabelList,
 } from 'recharts';
 import { StudyResult } from '../types';
+import { getReadableLanguageName } from '../constants/languages';
 
 interface Props {
   studyResult: StudyResult;
@@ -19,8 +20,16 @@ interface Props {
 const MIN_LANG_OPTIONS = [1, 3, 5, 10, 20];
 
 export function FamilyPatternsView({ studyResult }: Props) {
-  const { family_profiles } = studyResult;
+  const { family_profiles, language_partitions } = studyResult;
   const [minLangs, setMinLangs] = useState(3);
+
+  const languageNames = useMemo(() => {
+    const lookup: Record<string, string> = {};
+    Object.entries(language_partitions).forEach(([langCode, partition]) => {
+      lookup[langCode] = getReadableLanguageName(langCode, partition.language_name);
+    });
+    return lookup;
+  }, [language_partitions]);
 
   const pairs = useMemo(() => {
     const pairMap: Record<string, { labelA: string; labelB: string }> = {};
@@ -223,9 +232,10 @@ export function FamilyPatternsView({ studyResult }: Props) {
                       {d.attesting.slice(0, 12).map(lang => (
                         <span
                           key={lang}
-                          className="rounded-full border border-stone-200 bg-white/80 px-2 py-0.5 font-mono text-[10px] text-slate-600"
+                          className="rounded-full border border-stone-200 bg-white/80 px-2 py-0.5 text-[10px] text-slate-600"
+                          title={lang}
                         >
-                          {lang}
+                          {languageNames[lang] ?? getReadableLanguageName(lang)}
                         </span>
                       ))}
                       {d.attesting.length > 12 && (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, Compass, Loader2, Plus, Sparkles } from 'lucide-react';
-import { apiClient, runStudyWithProgress } from './api/client';
+import { runStudyWithProgress } from './api/client';
 import ComparisonHistory, { HistoryItem } from './components/ComparisonHistory';
 import { ComparisonContainer } from './components/ComparisonContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -120,10 +120,10 @@ function App() {
 
   return (
     <div className="atlas-page min-h-screen">
-      <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <div className="relative mx-auto max-w-[90rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
 
         {/* Header */}
-        <header className="mb-6 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
+        <header className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
           <section className="atlas-panel atlas-panel-strong p-8 md:p-10">
             <div className="atlas-pill mb-5">
               <Compass className="h-3.5 w-3.5" />
@@ -131,41 +131,40 @@ function App() {
             </div>
             <div className="max-w-3xl">
               <p className="atlas-kicker mb-3">Concept Colexification Atlas</p>
-              <h1 className="mb-4 text-4xl leading-tight text-slate-900 md:text-5xl">
+              <h1 className="mb-4 text-4xl leading-tight text-slate-950 md:text-5xl">
                 Explore how languages carve up meaning.
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
+              <p className="max-w-2xl text-base leading-7 text-slate-700 md:text-lg">
                 Select 2–6 concepts and see where they merge into one word, stay split, or link
                 through semantic chains — across 3,000+ languages and hundreds of families.
                 Evidence comes from{' '}
-                <span className="font-medium text-slate-800">attested colexification data</span>,
-                not scores.
+                <span className="font-medium text-slate-900">attested colexification data</span>.
               </p>
             </div>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="atlas-gridline rounded-[24px] bg-white/45 p-4">
+              <div className="atlas-gridline rounded-[24px] bg-white/60 p-4">
                 <p className="atlas-label mb-2">Concepts</p>
-                <p className="text-lg font-semibold text-slate-900">
+                <p className="text-lg font-semibold text-slate-950">
                   {readySlots.length} / {conceptSlots.length} ready
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-2 text-sm text-slate-700">
                   Search Concepticon to pin each concept to a canonical ID.
                 </p>
               </div>
-              <div className="atlas-gridline rounded-[24px] bg-white/45 p-4">
+              <div className="atlas-gridline rounded-[24px] bg-white/60 p-4">
                 <p className="atlas-label mb-2">Families</p>
-                <p className="text-lg font-semibold text-slate-900">
+                <p className="text-lg font-semibold text-slate-950">
                   {selectedFamilies.length > 0 ? `${selectedFamilies.length} selected` : 'All families'}
                 </p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-2 text-sm text-slate-700">
                   Drill into specific families or see all CLICS data.
                 </p>
               </div>
-              <div className="atlas-gridline rounded-[24px] bg-white/45 p-4">
+              <div className="atlas-gridline rounded-[24px] bg-white/60 p-4">
                 <p className="atlas-label mb-2">Analysis state</p>
-                <p className="text-lg font-semibold text-slate-900">{comparisonStatus}</p>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="text-lg font-semibold text-slate-950">{comparisonStatus}</p>
+                <p className="mt-2 text-sm text-slate-700">
                   Results appear below once the study finishes.
                 </p>
               </div>
@@ -173,35 +172,33 @@ function App() {
           </section>
 
           <aside className="atlas-panel p-6">
-            <p className="atlas-kicker mb-3">Field notes</p>
-            <h2 className="mb-4 text-2xl text-slate-900">How it works</h2>
-            <div className="space-y-4 text-sm leading-6 text-slate-600">
+            <p className="atlas-kicker mb-3">Study flow</p>
+            <h2 className="mb-4 text-2xl text-slate-950">How to read the atlas</h2>
+            <div className="space-y-4 text-sm leading-6 text-slate-700">
               <div className="rounded-[22px] border border-stone-200/70 bg-white/60 p-4">
-                <p className="font-semibold uppercase tracking-[0.16em] text-slate-800">1. Build a concept set</p>
+                <p className="font-semibold uppercase tracking-[0.16em] text-slate-900">1. Build a concept set</p>
                 <p className="mt-2">
-                  Search concepts by name — they're anchored to Concepticon IDs,
-                  cross-linked to CLICS colexification data covering 3,000+ languages.
+                  Search by gloss, lock each concept to a Concepticon ID, then compare the set
+                  against CLICS evidence.
                 </p>
               </div>
               <div className="rounded-[22px] border border-stone-200/70 bg-white/60 p-4">
-                <p className="font-semibold uppercase tracking-[0.16em] text-slate-800">2. Filter families (optional)</p>
+                <p className="font-semibold uppercase tracking-[0.16em] text-slate-900">2. Narrow the sample</p>
                 <p className="mt-2">
-                  All families are shown by default. Select specific ones to drill into
-                  individual language evidence.
+                  Keep the global view, or open the family filter to focus the detailed language evidence.
                 </p>
               </div>
               <div className="rounded-[22px] border border-stone-200/70 bg-white/60 p-4">
-                <p className="font-semibold uppercase tracking-[0.16em] text-slate-800">3. Read the evidence</p>
+                <p className="font-semibold uppercase tracking-[0.16em] text-slate-900">3. Compare the views</p>
                 <p className="mt-2">
-                  Family Patterns shows colexification rates per family. The Concept Network shows
-                  how your concepts sit in the CLICS graph. Drill into Language Details for specific languages.
+                  Start with family-level patterns, then move into the network and language tabs for closer inspection.
                 </p>
               </div>
             </div>
           </aside>
         </header>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_380px]">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
           <main className="space-y-6">
 
             {/* Starter studies (shown before any results) */}
@@ -243,7 +240,7 @@ function App() {
                 <div>
                   <p className="atlas-kicker mb-2">Build study</p>
                   <h2 className="atlas-section-title">Concept set</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
                     Add 2–6 concepts. Each concept is resolved to a Concepticon ID for
                     accurate cross-linguistic comparison.
                   </p>
@@ -273,7 +270,7 @@ function App() {
               )}
 
               {/* Family selector */}
-              <div className="mt-6 rounded-[26px] border border-stone-200/80 bg-white/55 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+              <div className="mt-6 rounded-[26px] border border-stone-200/80 bg-white/65 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
                 <FamilySelector
                   selectedFamilies={selectedFamilies}
                   onChange={setSelectedFamilies}
@@ -285,10 +282,9 @@ function App() {
                 <div>
                   <p className="atlas-label mb-2 text-stone-200">Launch study</p>
                   <h3 className="text-2xl text-white">Run the analysis</h3>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-stone-200">
-                    The system will look up direct and partial colexifications in CLICS
-                    for every concept pair across all selected languages.
-                    No external API calls required.
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-stone-100">
+                    The study checks direct and partial colexifications in CLICS for every
+                    concept pair across the selected sample.
                   </p>
                 </div>
                 <div className="flex flex-col items-start gap-3 md:items-end">
@@ -317,18 +313,9 @@ function App() {
                 </div>
               )}
             </section>
-
-            {/* Results */}
-            {studyResult && (
-              <ErrorBoundary>
-                <ComparisonContainer
-                  studyResult={studyResult}
-                />
-              </ErrorBoundary>
-            )}
           </main>
 
-          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto">
+          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
             <div className="atlas-panel p-6">
               <ComparisonHistory
                 onSelect={handleHistorySelect}
@@ -343,7 +330,16 @@ function App() {
             </div>
             <InfoPanel />
           </aside>
-        </div>
+        </section>
+
+        {/* Results */}
+        {studyResult && (
+          <section className="mt-6">
+            <ErrorBoundary>
+              <ComparisonContainer studyResult={studyResult} />
+            </ErrorBoundary>
+          </section>
+        )}
       </div>
     </div>
   );
