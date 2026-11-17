@@ -111,6 +111,9 @@ class LanguagePartition(BaseModel):
     family: str
     merged_groups: List[List[str]]     # each inner list = concepts merged in one word
     split_count: int                   # number of distinct lexical items used
+    dataset: str = ""                  # CLICS source dataset (e.g. "NorthEuraLex")
+    # Attested word form per colexified pair, keyed "concepticonA|concepticonB"
+    pair_forms: Dict[str, str] = {}
 
 
 class StudyRequest(BaseModel):
@@ -134,6 +137,24 @@ class StudyResult(BaseModel):
     # Optional surface translations (keyed by lang_code, then concept index)
     translations: Optional[Dict[str, List[str]]] = None
     dataset_versions: Dict[str, str] = {}
+    # Readable names for every language code that appears in the result
+    language_names: Dict[str, str] = {}
+
+
+class SemanticChain(BaseModel):
+    """An indirect path of colexifications, e.g. WEATHER -> SKY -> GOD."""
+    path: List[str]            # CLICS glosses from concept A to concept B
+    scores: List[float]        # per-link share of sampled languages attesting it
+    counts: List[int]          # per-link number of attesting languages
+    total_score: float         # geometric mean of scores
+
+
+class SemanticChainResponse(BaseModel):
+    concept_a: str
+    concept_b: str
+    family: Optional[str] = None
+    direct_count: int = 0      # languages colexifying A and B directly
+    chains: List[SemanticChain]
 
 
 class SemanticMapNode(BaseModel):

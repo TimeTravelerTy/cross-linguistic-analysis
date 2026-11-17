@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, Compass, Loader2, Plus, Sparkles } from 'lucide-react';
-import { runStudyWithProgress } from './api/client';
-import ComparisonHistory, { HistoryItem } from './components/ComparisonHistory';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ArrowRight, Plus } from 'lucide-react';
+import { apiClient, runStudyWithProgress } from './api/client';
+import ComparisonHistory from './components/ComparisonHistory';
+import { HistoryItem, addToHistory, clearHistory, loadHistory } from './utils/history';
+import { readUrlState, writeUrlState } from './utils/urlState';
 import { ComparisonContainer } from './components/ComparisonContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import ConceptSlotPanel from './components/ConceptSlotPanel';
@@ -12,38 +14,51 @@ import ProgressButton from './components/ProgressButton';
 import StarterStudyPicker from './components/StarterStudyPicker';
 import { ConceptAnchor, ConceptSlot, StudyRequest, StudyResult } from './types';
 
-const initialSlot = (): ConceptSlot => ({ anchor: null, inputValue: '' });
+const MAX_CONCEPTS = 6;
+const emptySlot = (): ConceptSlot => ({ anchor: null, inputValue: '' });
+const slotsFrom = (anchors: ConceptAnchor[]): ConceptSlot[] => {
+  const slots = anchors.map(anchor => ({ anchor, inputValue: anchor.label }));
+  while (slots.length < 2) slots.push(emptySlot());
+  return slots;
+};
 
 function App() {
-  const [conceptSlots, setConceptSlots] = useState<ConceptSlot[]>([initialSlot(), initialSlot()]);
+  const [conceptSlots, setConceptSlots] = useState<ConceptSlot[]>([emptySlot(), emptySlot()]);
   const [selectedFamilies, setSelectedFamilies] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [progressStep, setProgressStep] = useState('');
+  const [history, setHistory] = useState<HistoryItem[]>(loadHistory);
+  const [lastRun, setLastRun] = useState<HistoryItem | null>(null);
+  const [initialUrl] = useState(readUrlState);
+  // Tab/pair from a shared link apply to the first result only
+  const pendingView = useRef<{ tab: string | null; pair: [string, string] | null }>({
+    tab: initialUrl.tab,
+    pair: initialUrl.pair,
+  });
+  const [resultView, setResultView] = useState(pendingView.current);
+
+  const { data: families } = useQuery({
+    queryKey: ['families'],
+    queryFn: () => apiClient.getFamilies(),
+    staleTime: Infinity,
+  });
+  const totalLanguages = families?.reduce((sum, f) => sum + f.language_count, 0);
 
   // ---------------------------------------------------------------------------
-  // Slot management
+  // Slots
   // ---------------------------------------------------------------------------
 
-  const addSlot = () => {
-    if (conceptSlots.length < 6) {
-      setConceptSlots(prev => [...prev, initialSlot()]);
-    }
-  };
+  const addSlot = () =>
+    setConceptSlots(prev => (prev.length < MAX_CONCEPTS ? [...prev, emptySlot()] : prev));
 
-  const removeSlot = (index: number) => {
-    if (conceptSlots.length > 2) {
-      setConceptSlots(prev => prev.filter((_, i) => i !== index));
-    }
-  };
+  const removeSlot = (index: number) =>
+    setConceptSlots(prev => (prev.length > 2 ? prev.filter((_, i) => i !== index) : prev));
 
-  const updateSlot = (index: number, updates: Partial<ConceptSlot>) => {
-    setConceptSlots(prev =>
-      prev.map((slot, i) => (i === index ? { ...slot, ...updates } : slot))
-    );
-  };
+  const updateSlot = (index: number, updates: Partial<ConceptSlot>) =>
+    setConceptSlots(prev => prev.map((slot, i) => (i === index ? { ...slot, ...updates } : slot)));
 
   // ---------------------------------------------------------------------------
-  // Study mutation
+  // Study
   // ---------------------------------------------------------------------------
 
   const {
@@ -51,292 +66,162 @@ function App() {
     data: studyResult,
     isPending: comparing,
     error: studyError,
-    reset: resetStudy,
   } = useMutation<StudyResult, Error, StudyRequest>({
-    mutationFn: (req) =>
+    mutationFn: req =>
       runStudyWithProgress(req, (p, step) => {
         setProgress(p);
         setProgressStep(step);
       }),
+    onSuccess: (_result, req) => {
+      const item: HistoryItem = {
+        anchors: req.concepts,
+        selectedFamilies: req.families,
+        timestamp: Date.now(),
+      };
+      setLastRun(item);
+      setResultView(pendingView.current);
+      pendingView.current = { tab: null, pair: null };
+      setHistory(prev => addToHistory(prev, item));
+      writeUrlState({ concepts: req.concepts.map(c => c.concepticon_id), families: req.families });
+    },
     onSettled: () => {
       setProgress(0);
       setProgressStep('');
     },
   });
 
-  // ---------------------------------------------------------------------------
-  // Validation
-  // ---------------------------------------------------------------------------
-
   const readySlots = conceptSlots.filter(s => s.anchor !== null);
-  const canCompare = readySlots.length >= 2 && !comparing;
-
-  const comparisonStatus = comparing
-    ? (progressStep || 'Running study…')
-    : canCompare
-    ? 'Ready for analysis'
-    : 'Add 2 or more concepts';
-
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
+  const uniqueIds = new Set(readySlots.map(s => s.anchor!.concepticon_id));
+  const hasDuplicates = uniqueIds.size < readySlots.length;
+  const canCompare = readySlots.length >= 2 && !hasDuplicates && !comparing;
+  const pairCount = (readySlots.length * (readySlots.length - 1)) / 2;
 
   const handleCompare = () => {
     if (!canCompare) return;
-    const anchors = readySlots.map(s => s.anchor!);
-    runStudy({
-      concepts: anchors,
-      families: selectedFamilies,
-      show_translations: false,
-    });
+    runStudy({ concepts: readySlots.map(s => s.anchor!), families: selectedFamilies });
   };
 
-  const handleStarterStudy = (anchors: ConceptAnchor[]) => {
-    // Fill slots from a curated study (may expand beyond 2 slots)
-    const newSlots: ConceptSlot[] = anchors.map(anchor => ({
-      anchor,
-      inputValue: anchor.label,
-    }));
-    // Pad to at least 2 if needed
-    while (newSlots.length < 2) newSlots.push(initialSlot());
-    setConceptSlots(newSlots);
-    resetStudy();
+  const loadStudy = (anchors: ConceptAnchor[], familiesToUse: string[] = selectedFamilies) => {
+    setConceptSlots(slotsFrom(anchors));
+    setSelectedFamilies(familiesToUse);
+    runStudy({ concepts: anchors, families: familiesToUse });
   };
 
-  const handleHistorySelect = (item: HistoryItem) => {
-    // Restore slots from history (concepts stored as strings; resolve via registry)
-    const newSlots: ConceptSlot[] = item.concepts.map(label => ({
-      anchor: null,
-      inputValue: label,
-    }));
-    while (newSlots.length < 2) newSlots.push(initialSlot());
-    setConceptSlots(newSlots);
-    setSelectedFamilies(item.selectedFamilies ?? []);
-  };
+  // Restore a shared study link (?concepts=…) once on load
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || initialUrl.concepts.length < 2) return;
+    restoredRef.current = true;
+    apiClient
+      .getConceptsById(initialUrl.concepts)
+      .then(anchors => {
+        if (anchors.length >= 2) loadStudy(anchors, initialUrl.families);
+      })
+      .catch(err => console.error('Could not restore study from URL', err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  const statusText = comparing
+    ? progressStep || 'Running study…'
+    : hasDuplicates
+    ? 'The same concept is selected twice'
+    : readySlots.length < 2
+    ? 'Pick at least 2 concepts'
+    : `${readySlots.length} concepts · ${pairCount} ${pairCount === 1 ? 'pair' : 'pairs'} · ${
+        selectedFamilies.length > 0 ? `${selectedFamilies.length} families` : 'all families'
+      }`;
 
   return (
     <div className="atlas-page min-h-screen">
-      <div className="relative mx-auto max-w-[90rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-
-        {/* Header */}
-        <header className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_360px]">
-          <section className="atlas-panel atlas-panel-strong p-8 md:p-10">
-            <div className="atlas-pill mb-5">
-              <Compass className="h-3.5 w-3.5" />
-              Atlas Lab
-            </div>
-            <div className="max-w-3xl">
-              <p className="atlas-kicker mb-3">Concept Colexification Atlas</p>
-              <h1 className="mb-4 text-4xl leading-tight text-slate-950 md:text-5xl">
-                Explore how languages carve up meaning.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-slate-700 md:text-lg">
-                Select 2–6 concepts and see where they merge into one word, stay split, or link
-                through semantic chains — across 3,000+ languages and hundreds of families.
-                Evidence comes from{' '}
-                <span className="font-medium text-slate-900">attested colexification data</span>.
-              </p>
-            </div>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              <div className="atlas-gridline rounded-[24px] bg-white/60 p-4">
-                <p className="atlas-label mb-2">Concepts</p>
-                <p className="text-lg font-semibold text-slate-950">
-                  {readySlots.length} / {conceptSlots.length} ready
-                </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  Search Concepticon to pin each concept to a canonical ID.
-                </p>
-              </div>
-              <div className="atlas-gridline rounded-[24px] bg-white/60 p-4">
-                <p className="atlas-label mb-2">Families</p>
-                <p className="text-lg font-semibold text-slate-950">
-                  {selectedFamilies.length > 0 ? `${selectedFamilies.length} selected` : 'All families'}
-                </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  Drill into specific families or see all CLICS data.
-                </p>
-              </div>
-              <div className="atlas-gridline rounded-[24px] bg-white/60 p-4">
-                <p className="atlas-label mb-2">Analysis state</p>
-                <p className="text-lg font-semibold text-slate-950">{comparisonStatus}</p>
-                <p className="mt-2 text-sm text-slate-700">
-                  Results appear below once the study finishes.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <aside className="atlas-panel p-6">
-            <p className="atlas-kicker mb-3">Study flow</p>
-            <h2 className="mb-4 text-2xl text-slate-950">How to read the atlas</h2>
-            <div className="space-y-4 text-sm leading-6 text-slate-700">
-              <div className="rounded-[22px] border border-stone-200/70 bg-white/60 p-4">
-                <p className="font-semibold uppercase tracking-[0.16em] text-slate-900">1. Build a concept set</p>
-                <p className="mt-2">
-                  Search by gloss, lock each concept to a Concepticon ID, then compare the set
-                  against CLICS evidence.
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-stone-200/70 bg-white/60 p-4">
-                <p className="font-semibold uppercase tracking-[0.16em] text-slate-900">2. Narrow the sample</p>
-                <p className="mt-2">
-                  Keep the global view, or open the family filter to focus the detailed language evidence.
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-stone-200/70 bg-white/60 p-4">
-                <p className="font-semibold uppercase tracking-[0.16em] text-slate-900">3. Compare the views</p>
-                <p className="mt-2">
-                  Start with family-level patterns, then move into the network and language tabs for closer inspection.
-                </p>
-              </div>
-            </div>
-          </aside>
+      <div className="relative mx-auto max-w-[88rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+        <header className="mb-8">
+          <h1 className="text-3xl text-slate-950 md:text-4xl">Cross-Linguistic Concept Comparator</h1>
+          <p className="mt-2 max-w-3xl text-base leading-7 text-slate-700">
+            Compare how languages group concepts into words. Pick 2–6 concepts to see which
+            languages use one word for several of them (colexification), how this varies by
+            family, and which indirect chains link them, based on CLICS data
+            {totalLanguages ? ` for ${totalLanguages.toLocaleString()} languages in ${families!.length} families` : ''}.
+          </p>
         </header>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
           <main className="space-y-6">
-
-            {/* Starter studies (shown before any results) */}
-            {!studyResult && !comparing && (
-              <StarterStudyPicker onSelect={handleStarterStudy} />
-            )}
-
-            {/* Loading indicator while study runs */}
-            {comparing && (
-              <section className="atlas-panel p-8">
-                <div className="flex flex-col items-center gap-5 py-8 text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
-                  <div>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {progressStep || 'Running study…'}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Querying CLICS colexification data for {readySlots.length} concepts
-                    </p>
-                  </div>
-                  {progress > 0 && (
-                    <div className="w-full max-w-sm">
-                      <div className="h-2 overflow-hidden rounded-full bg-stone-200">
-                        <div
-                          className="h-full rounded-full bg-sky-500 transition-all duration-300"
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-slate-400">{Math.round(progress)}% complete</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* Concept input workspace */}
             <section className="atlas-panel p-6 md:p-8">
-              <div className="mb-6 flex flex-col gap-3 border-b border-stone-200/70 pb-5 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="atlas-kicker mb-2">Build study</p>
-                  <h2 className="atlas-section-title">Concept set</h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
-                    Add 2–6 concepts. Each concept is resolved to a Concepticon ID for
-                    accurate cross-linguistic comparison.
-                  </p>
-                </div>
-                <div className="atlas-chip">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {comparisonStatus}
-                </div>
+              <div className="mb-5">
+                <h2 className="atlas-section-title">Concepts</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Search for a concept and pick a Concepticon entry. Entries marked CLICS have
+                  colexification data.
+                </p>
               </div>
 
-              {/* Dynamic concept slots */}
-              <ConceptSlotPanel
-                slots={conceptSlots}
-                onUpdateSlot={updateSlot}
-                onRemoveSlot={removeSlot}
-              />
+              <ConceptSlotPanel slots={conceptSlots} onUpdateSlot={updateSlot} onRemoveSlot={removeSlot} />
 
-              {/* Add concept button */}
-              {conceptSlots.length < 6 && (
+              {conceptSlots.length < MAX_CONCEPTS && (
                 <button
                   onClick={addSlot}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] border border-dashed border-stone-300 bg-stone-50/60 py-3 text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:bg-white/70 hover:text-slate-800"
                 >
                   <Plus className="h-4 w-4" />
-                  Add concept ({conceptSlots.length}/6)
+                  Add concept ({conceptSlots.length}/{MAX_CONCEPTS})
                 </button>
               )}
 
-              {/* Family selector */}
-              <div className="mt-6 rounded-[26px] border border-stone-200/80 bg-white/65 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
-                <FamilySelector
-                  selectedFamilies={selectedFamilies}
-                  onChange={setSelectedFamilies}
-                />
+              <div className="mt-6 rounded-[22px] border border-stone-200/80 bg-white/65 p-5">
+                <FamilySelector selectedFamilies={selectedFamilies} onChange={setSelectedFamilies} />
               </div>
 
-              {/* Launch bar */}
-              <div className="mt-6 flex flex-col gap-4 rounded-[26px] border border-stone-200/80 bg-[linear-gradient(135deg,rgba(25,66,86,0.96),rgba(44,102,127,0.9))] p-5 text-stone-50 shadow-[0_20px_45px_rgba(28,48,62,0.18)] md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="atlas-label mb-2 text-stone-200">Launch study</p>
-                  <h3 className="text-2xl text-white">Run the analysis</h3>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-stone-100">
-                    The study checks direct and partial colexifications in CLICS for every
-                    concept pair across the selected sample.
-                  </p>
-                </div>
-                <div className="flex flex-col items-start gap-3 md:items-end">
-                  <ProgressButton
-                    onClick={handleCompare}
-                    disabled={!canCompare}
-                    isLoading={comparing}
-                    progress={progress}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {studyResult ? 'Re-run study' : 'Run study'}
-                      <ArrowRight className="h-4 w-4" />
-                    </span>
-                  </ProgressButton>
-                  <p className="text-xs uppercase tracking-[0.18em] text-stone-200/80">
-                    {readySlots.length > 1
-                      ? `${readySlots.length} concepts · ${Math.floor(readySlots.length * (readySlots.length - 1) / 2)} pairs · ${selectedFamilies.length > 0 ? selectedFamilies.length + ' families' : 'all families'}`
-                      : 'Add at least 2 concepts'}
-                  </p>
-                </div>
+              <div className="mt-6 flex flex-col gap-3 rounded-[22px] bg-sky-950 p-5 text-stone-50 md:flex-row md:items-center md:justify-between">
+                <p className={`text-sm ${hasDuplicates ? 'text-amber-200' : 'text-stone-200'}`}>{statusText}</p>
+                <ProgressButton
+                  onClick={handleCompare}
+                  disabled={!canCompare}
+                  isLoading={comparing}
+                  progress={progress}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    {studyResult ? 'Run again' : 'Run study'}
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
+                </ProgressButton>
               </div>
 
               {studyError && (
-                <div className="mt-6 rounded-[22px] border border-red-300/80 bg-red-50/80 p-4 text-sm text-red-900">
+                <div role="alert" className="mt-4 rounded-[18px] border border-red-300/80 bg-red-50/80 p-4 text-sm text-red-900">
                   {studyError.message}
                 </div>
               )}
             </section>
+
+            {!studyResult && !comparing && <StarterStudyPicker onSelect={anchors => loadStudy(anchors)} />}
           </main>
 
-          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-            <div className="atlas-panel p-6">
+          <aside className="space-y-6 xl:sticky xl:top-6">
+            <div className="atlas-panel p-5">
               <ComparisonHistory
-                onSelect={handleHistorySelect}
-                currentConcepts={
-                  readySlots.length >= 2
-                    ? readySlots.map(s => s.anchor!.label)
-                    : undefined
-                }
-                selectedFamilies={selectedFamilies}
-                hasResults={!!studyResult}
+                history={history}
+                active={lastRun}
+                onSelect={item => loadStudy(item.anchors, item.selectedFamilies)}
+                onClear={() => {
+                  clearHistory();
+                  setHistory([]);
+                }}
               />
             </div>
             <InfoPanel />
           </aside>
         </section>
 
-        {/* Results */}
         {studyResult && (
-          <section className="mt-6">
+          <section className="mt-6" id="results">
             <ErrorBoundary>
-              <ComparisonContainer studyResult={studyResult} />
+              {/* Keyed so per-view state (selected pair, filters) resets for each new result */}
+              <ComparisonContainer
+                key={lastRun?.timestamp ?? 0}
+                studyResult={studyResult}
+                initialTab={resultView.tab}
+                initialPair={resultView.pair}
+              />
             </ErrorBoundary>
           </section>
         )}

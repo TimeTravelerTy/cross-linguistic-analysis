@@ -1,79 +1,44 @@
-# Data directories
-data/
-datasets/
-corpus/
-training_data/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-.env
-
-# Node/React
-node_modules/
-/dist
-/build
+# OS / editor
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 *.swn
-.DS_Store
 
-# Virtual Environment
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
 venv/
-env/
-ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+/build/
+/dist/
 
-# Model files and caches
+# Node / frontend
+node_modules/
+concept-comparator/frontend/dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# Data and models (download separately, see README)
+concept-comparator/backend/data/
+concept-comparator/data/
+models/
+*.pth
 *.pkl
 *.h5
-models/
-__pycache__/
-.cache/
-.pytest_cache/
-
-# Large files
+*.temp
 *.zip
 *.tar.gz
-*.tar
-*.7z
-*.csv
-*.tsv
-*.json
-!concept-comparator/frontend/package.json
-!concept-comparator/frontend/package-lock.json
-!concept-comparator/frontend/tsconfig.json
-!concept-comparator/frontend/tsconfig.app.json
-!concept-comparator/frontend/tsconfig.node.json
 
-# CLICS data
-*.temp
+# Local Claude Code settings
+.claude/

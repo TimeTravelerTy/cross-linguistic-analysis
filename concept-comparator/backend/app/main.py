@@ -2,9 +2,6 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import List, Dict, Optional, AsyncGenerator
-from app.services.disambiguation import DisambiguationService
-from app.services.translation import TranslationService
-from app.services.embedding import EmbeddingService
 from app.models.schemas import (
     WordSense,
     ComparisonRequest,
@@ -12,186 +9,89 @@ from app.models.schemas import (
     ConceptAnchor,
     StudyRequest,
     SemanticMapResponse,
+    SemanticChainResponse,
 )
 from app.services.clics import ClicsService
 from app.services.concept_registry import ConceptRegistryService
 from app.services.colexification import ColexificationService
 from app.services.study_pipeline import StudyPipelineService
+from app.services.language_metadata import LanguageMetadataService
+from app.constants.supported_languages import SUPPORTED_LANGUAGES
 from dotenv import load_dotenv
+import importlib
 import logging
+import os
 import json
 import asyncio
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class _LazyService:
+    """
+    Instantiate a service on first use. The legacy pairwise endpoints
+    (/word-senses, /compare-concepts) need LaBSE, WordNet and an LLM client;
+    loading those eagerly made startup slow even though the main study flow
+    never touches them.
+    """
+
+    def __init__(self, module: str, cls: str) -> None:
+        self._module, self._cls, self._instance = module, cls, None
+
+    def __getattr__(self, name: str):
+        if self._instance is None:
+            logger.info("Loading %s on first use", self._cls)
+            self._instance = getattr(importlib.import_module(self._module), self._cls)()
+        return getattr(self._instance, name)
+
+
 clics_service = ClicsService()
+language_metadata = LanguageMetadataService(
+    Path(__file__).resolve().parents[1] / "data" / "clics" / "clics.sqlite"
+)
 
-app = FastAPI(title="Concept Atlas API")
+app = FastAPI(title="Cross-Linguistic Concept Comparator API")
 
-# Initialize services
-disambiguation_service = DisambiguationService()
-translation_service = TranslationService()
-embedding_service = EmbeddingService()
+# Legacy pairwise-comparison services (loaded lazily)
+disambiguation_service = _LazyService("app.services.disambiguation", "DisambiguationService")
+translation_service = _LazyService("app.services.translation", "TranslationService")
+embedding_service = _LazyService("app.services.embedding", "EmbeddingService")
 
-# Atlas services (new)
+# Study services
 try:
     registry_service = ConceptRegistryService()
-    colex_service = ColexificationService(clics_service)
-    study_pipeline = StudyPipelineService(colex_service, registry_service, translation_service)
+    colex_service = ColexificationService(clics_service, language_metadata)
+    study_pipeline = StudyPipelineService(colex_service, registry_service)
     _atlas_available = True
-    print("Atlas services initialised successfully")
+    logger.info("Study services initialised")
 except Exception as e:
     registry_service = None  # type: ignore
     colex_service = None  # type: ignore
     study_pipeline = None  # type: ignore
     _atlas_available = False
-    print(f"Atlas services unavailable (run scripts/run_ingestion.py first): {e}")
+    logger.error("Study services unavailable (run scripts/run_ingestion.py first): %s", e)
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite's default port
+    allow_origins=[
+        o.strip()
+        for o in os.getenv(
+            "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+        ).split(",")
+        if o.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-SUPPORTED_LANGUAGES = {
-    # Indo-European - Germanic
-    'eng': {'name': 'English', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'deu': {'name': 'German', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'nld': {'name': 'Dutch', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'fry': {'name': 'Frisian', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'isl': {'name': 'Icelandic', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'nor': {'name': 'Norwegian', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'dan': {'name': 'Danish', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    'swe': {'name': 'Swedish', 'family': 'Indo-European', 'subfamily': 'Germanic'},
-    
-    # Indo-European - Romance
-    'fra': {'name': 'French', 'family': 'Indo-European', 'subfamily': 'Romance'},
-    'spa': {'name': 'Spanish', 'family': 'Indo-European', 'subfamily': 'Romance'},
-    'ita': {'name': 'Italian', 'family': 'Indo-European', 'subfamily': 'Romance'},
-    'por': {'name': 'Portuguese', 'family': 'Indo-European', 'subfamily': 'Romance'},
-    'ron': {'name': 'Romanian', 'family': 'Indo-European', 'subfamily': 'Romance'},
-    
-    # Indo-European - Slavic
-    'rus': {'name': 'Russian', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'pol': {'name': 'Polish', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'ces': {'name': 'Czech', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'bel': {'name': 'Belarusian', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'bul': {'name': 'Bulgarian', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'srp': {'name': 'Serbian', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'hrv': {'name': 'Croatian', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'slk': {'name': 'Slovak', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    'slv': {'name': 'Slovene', 'family': 'Indo-European', 'subfamily': 'Slavic'},
-    
-    # Indo-European - Baltic
-    'lav': {'name': 'Latvian', 'family': 'Indo-European', 'subfamily': 'Baltic'},
-    'lit': {'name': 'Lithuanian', 'family': 'Indo-European', 'subfamily': 'Baltic'},
-    
-    # Indo-European - Indo-Iranian
-    'hin': {'name': 'Hindi', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'ben': {'name': 'Bengali', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'urd': {'name': 'Urdu', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'pan': {'name': 'Punjabi', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'mar': {'name': 'Marathi', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'guj': {'name': 'Gujarati', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'nep': {'name': 'Nepali', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'sin': {'name': 'Sinhala', 'family': 'Indo-European', 'subfamily': 'Indo-Aryan'},
-    'fas': {'name': 'Persian', 'family': 'Indo-European', 'subfamily': 'Iranian'},
-    'tgk': {'name': 'Tajik', 'family': 'Indo-European', 'subfamily': 'Iranian'},
-    
-    # Indo-European - Celtic
-    'gle': {'name': 'Irish', 'family': 'Indo-European', 'subfamily': 'Celtic'},
-    'gla': {'name': 'Scottish Gaelic', 'family': 'Indo-European', 'subfamily': 'Celtic'},
-    'cym': {'name': 'Welsh', 'family': 'Indo-European', 'subfamily': 'Celtic'},
-    
-    # Indo-European - Other
-    'ell': {'name': 'Greek', 'family': 'Indo-European', 'subfamily': 'Hellenic'},
-    'hye': {'name': 'Armenian', 'family': 'Indo-European', 'subfamily': 'Armenian'},
-    'sqi': {'name': 'Albanian', 'family': 'Indo-European', 'subfamily': 'Albanian'},
-    
-    # Afroasiatic
-    'ara': {'name': 'Arabic', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
-    'heb': {'name': 'Hebrew', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
-    'amh': {'name': 'Amharic', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
-    'mlt': {'name': 'Maltese', 'family': 'Afro-Asiatic', 'subfamily': 'Semitic'},
-    'hau': {'name': 'Hausa', 'family': 'Afro-Asiatic', 'subfamily': 'Chadic'},
-    'som': {'name': 'Somali', 'family': 'Afro-Asiatic', 'subfamily': 'Cushitic'},
-    
-    # Sino-Tibetan
-    'zho': {'name': 'Mandarin Chinese', 'family': 'Sino-Tibetan', 'subfamily': 'Sinitic'},
-    'yue': {'name': 'Cantonese', 'family': 'Sino-Tibetan', 'subfamily': 'Sinitic'},
-    'bod': {'name': 'Tibetan', 'family': 'Sino-Tibetan', 'subfamily': 'Tibetic'},
-    
-    # Japonic
-    'jpn': {'name': 'Japanese', 'family': 'Japonic', 'subfamily': 'Japanese'},
-    
-    # Koreanic
-    'kor': {'name': 'Korean', 'family': 'Koreanic', 'subfamily': 'Korean'},
-    
-    # Mongolic
-    'mon': {'name': 'Mongolian', 'family': 'Mongolic', 'subfamily': 'Mongolian'},
-    
-    # Austroasiatic
-    'vie': {'name': 'Vietnamese', 'family': 'Austroasiatic', 'subfamily': 'Vietic'},
-    'khm': {'name': 'Khmer', 'family': 'Austroasiatic', 'subfamily': 'Khmer'},
-    
-    # Tai-Kadai
-    'tha': {'name': 'Thai', 'family': 'Tai-Kadai', 'subfamily': 'Tai'},
-    'lao': {'name': 'Lao', 'family': 'Tai-Kadai', 'subfamily': 'Tai'},
-    
-    # Dravidian
-    'mal': {'name': 'Malayalam', 'family': 'Dravidian', 'subfamily': 'South Dravidian'},
-    'tam': {'name': 'Tamil', 'family': 'Dravidian', 'subfamily': 'South Dravidian'},
-    'tel': {'name': 'Telugu', 'family': 'Dravidian', 'subfamily': 'South Central Dravidian'},
-    'kan': {'name': 'Kannada', 'family': 'Dravidian', 'subfamily': 'South Dravidian'},
-    
-    # Austronesian
-    'msa': {'name': 'Malay', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'ind': {'name': 'Indonesian', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'jav': {'name': 'Javanese', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'ceb': {'name': 'Cebuano', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'tgl': {'name': 'Tagalog', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'sun': {'name': 'Sundanese', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'mlg': {'name': 'Malagasy', 'family': 'Austronesian', 'subfamily': 'Malayo-Polynesian'},
-    'mri': {'name': 'Maori', 'family': 'Austronesian', 'subfamily': 'Polynesian'},
-    
-    # Turkic
-    'tur': {'name': 'Turkish', 'family': 'Turkic', 'subfamily': 'Oghuz'},
-    'azj': {'name': 'Azerbaijani', 'family': 'Turkic', 'subfamily': 'Oghuz'},
-    'tuk': {'name': 'Turkmen', 'family': 'Turkic', 'subfamily': 'Oghuz'},
-    'uzb': {'name': 'Uzbek', 'family': 'Turkic', 'subfamily': 'Karluk'},
-    'uig': {'name': 'Uyghur', 'family': 'Turkic', 'subfamily': 'Karluk'},
-    'kaz': {'name': 'Kazakh', 'family': 'Turkic', 'subfamily': 'Kipchak'},
-    'kir': {'name': 'Kyrgyz', 'family': 'Turkic', 'subfamily': 'Kipchak'},
-    'tat': {'name': 'Tatar', 'family': 'Turkic', 'subfamily': 'Kipchak'},
-    
-    # Uralic
-    'fin': {'name': 'Finnish', 'family': 'Uralic', 'subfamily': 'Finnic'},
-    'est': {'name': 'Estonian', 'family': 'Uralic', 'subfamily': 'Finnic'},
-    'hun': {'name': 'Hungarian', 'family': 'Uralic', 'subfamily': 'Ugric'},
-    
-    # Atlantic-Congo
-    'swa': {'name': 'Swahili', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
-    'zul': {'name': 'Zulu', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
-    'sna': {'name': 'Shona', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
-    'nya': {'name': 'Nyanja', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
-    'xho': {'name': 'Xhosa', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
-    'sot': {'name': 'Sotho', 'family': 'Atlantic-Congo', 'subfamily': 'Bantu'},
-    'yor': {'name': 'Yoruba', 'family': 'Atlantic-Congo', 'subfamily': 'Volta-Niger'},
-    'ibo': {'name': 'Igbo', 'family': 'Atlantic-Congo', 'subfamily': 'Volta-Niger'},
-    'wol': {'name': 'Wolof', 'family': 'Atlantic-Congo', 'subfamily': 'Atlantic'},
-    
-    # Others
-    'kat': {'name': 'Georgian', 'family': 'Kartvelian', 'subfamily': 'Kartvelian'},
-    'eus': {'name': 'Basque', 'family': 'Language Isolate', 'subfamily': 'None'},
-}
 
 @app.get("/word-senses/{word}", response_model=List[WordSense])
 async def get_word_senses(word: str):
@@ -318,7 +218,7 @@ async def compare_concepts(request: ComparisonRequest):
             if family:
                 families.add(family)
 
-        print(f"Requested families: {families}") 
+        logger.debug(f"Requested families: {families}")
 
         # Get detailed family colexification patterns
         family_colexifications = clics_service.get_family_colexifications(
@@ -329,7 +229,7 @@ async def compare_concepts(request: ComparisonRequest):
         
         for lang in request.languages:
             lang_name = SUPPORTED_LANGUAGES[lang]['name']
-            print(f"Processing language: {lang_name}")
+            logger.debug(f"Processing language: {lang_name}")
             family = get_language_family(lang)
             
             try:
@@ -343,7 +243,7 @@ async def compare_concepts(request: ComparisonRequest):
                 results[lang] = result
                 
             except Exception as e:
-                print(f"Error processing language {lang}: {str(e)}")
+                logger.error(f"Error processing language {lang}: {str(e)}")
                 # Skip this language and continue with others
                 continue
         
@@ -353,7 +253,7 @@ async def compare_concepts(request: ComparisonRequest):
         return results
         
     except Exception as e:
-        print(f"Error in comparison: {str(e)}")
+        logger.error(f"Error in comparison: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/supported-languages")
@@ -437,31 +337,49 @@ async def compare_concepts_with_progress(request: ComparisonRequest):
 async def get_semantic_chains(
     concept1: str,
     concept2: str,
-    family: str,
-    max_depth: int = 4
+    family: Optional[str] = None,
+    max_depth: int = Query(3, ge=2, le=4),
 ):
-    """Get semantic chains between two concepts within a language family."""
-    try:
-        chains = clics_service.find_chains(
-            concept1.upper(),  # CLICS uses uppercase
-            concept2.upper(),
-            family,
-            max_depth
-        )
-        
-        return {
-            "chains": chains,
-            "family": family,
-            "concepts": [concept1, concept2]
-        }
-        
-    except Exception as e:
-        logger.error(f"Error finding semantic chains: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error finding semantic chains: {str(e)}"
-        )
-    
+    """Semantic chains between two CLICS glosses (legacy, gloss-based)."""
+    chains = clics_service.find_chains(concept1.upper(), concept2.upper(), family, max_depth)
+    return {"chains": chains, "family": family, "concepts": [concept1, concept2]}
+
+
+@app.get("/chains", response_model=SemanticChainResponse)
+def get_chains(
+    a: str = Query(..., description="Concepticon ID of concept A"),
+    b: str = Query(..., description="Concepticon ID of concept B"),
+    family: Optional[str] = Query(None, description="Restrict links to one language family"),
+    max_depth: int = Query(3, ge=2, le=4, description="Maximum number of links"),
+    limit: int = Query(12, ge=1, le=30),
+):
+    """
+    Indirect colexification chains between two concepts, strongest first.
+    Each link is a colexification attested in the sample (one family, or all
+    of CLICS), e.g. WEATHER -> SKY -> GOD.
+    """
+    _require_atlas()
+    anchor_a = registry_service.get_by_id(a)
+    anchor_b = registry_service.get_by_id(b)
+    if not anchor_a or not anchor_b:
+        raise HTTPException(status_code=404, detail="Concept not found")
+
+    chains = colex_service.get_chains(anchor_a, anchor_b, family or None, max_depth, limit)
+    direct = colex_service.get_direct_evidence(anchor_a, anchor_b)
+    if family:
+        family_langs = clics_service.family_language_map.get(family, set())
+        direct_count = sum(1 for lang in direct.direct_languages if lang in family_langs)
+    else:
+        direct_count = direct.direct_count
+    return SemanticChainResponse(
+        concept_a=anchor_a.label,
+        concept_b=anchor_b.label,
+        family=family,
+        direct_count=direct_count,
+        chains=chains,
+    )
+
+
 @app.get("/search-clics-concepts/{query}")
 async def search_clics_concepts(query: str):
     """Search CLICS concepts matching query string"""
@@ -514,10 +432,37 @@ async def search_concepts(
 ):
     """
     Search the Concepticon registry by concept label.
-    Returns ConceptAnchor objects with CLICS linkage info.
+
+    Ranking: exact/prefix matches first, then concepts linked to CLICS, then
+    concepts attested in more languages, so "DAY" suggests DAY (NOT NIGHT)
+    rather than an unlinked or rare sense.
     """
     _require_atlas()
-    return registry_service.search(q, limit=limit)
+    query = q.strip().upper()
+    candidates = registry_service.search(q, limit=max(limit * 4, 40))
+
+    def rank(anchor: ConceptAnchor):
+        label = anchor.label.upper()
+        match = 0 if label == query else 1 if label.startswith(query) else 2
+        node = clics_service._get_node_by_gloss(anchor.clics_gloss) if anchor.clics_gloss else None
+        frequency = clics_service.graph.nodes[node].get("LanguageFrequency", 0) if node else -1
+        return (node is None, match, -frequency, label)
+
+    return sorted(candidates, key=rank)[:limit]
+
+
+@app.get("/concepts/by-id", response_model=List[ConceptAnchor])
+async def get_concepts_by_id(
+    ids: str = Query(..., description="Comma-separated Concepticon IDs"),
+):
+    """Resolve Concepticon IDs to concepts (used to restore shared study links)."""
+    _require_atlas()
+    anchors = []
+    for raw in ids.split(",")[:6]:
+        anchor = registry_service.get_by_id(raw.strip())
+        if anchor:
+            anchors.append(anchor)
+    return anchors
 
 
 @app.get("/concepts/{concepticon_id}/neighbors")
@@ -580,6 +525,11 @@ async def _stream_study(request: StudyRequest):
     except Exception as e:
         logger.error(f"Study pipeline error: {e}", exc_info=True)
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "study_services": _atlas_available}
 
 
 @app.get("/families")

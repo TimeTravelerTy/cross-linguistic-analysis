@@ -6,10 +6,10 @@ For a StudyRequest with N concepts (2–6), computes:
   - LanguagePartition for each requested language
   - Family profiles aggregated from the pair data
   - Node2Vec colexification-space embeddings for UMAP visualisation
-  - Optional: surface translations via TranslationService (show_translations=True)
+  - Colexification-space similarity per pair (cosine of the Node2Vec embeddings)
 """
 import asyncio
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 from app.models.schemas import (
     ColexResult,
@@ -25,11 +25,9 @@ class StudyPipelineService:
         self,
         colex_service: ColexificationService,
         registry_service: ConceptRegistryService,
-        translation_service=None,  # optional; injected at startup
     ) -> None:
         self._colex = colex_service
         self._registry = registry_service
-        self._translation = translation_service
 
     async def run(
         self,
@@ -68,12 +66,16 @@ class StudyPipelineService:
         ]
         total_steps = len(pairs) + 3
 
+        colex_embeddings = self._registry.get_embeddings(
+            [anchor.concepticon_id for anchor in anchors]
+        )
+
         for step_idx, (i, j) in enumerate(pairs):
             anchor_a = anchors[i]
             anchor_b = anchors[j]
 
             evidence = self._colex.get_direct_evidence(
-                anchor_a, anchor_b, [], {}
+                anchor_a, anchor_b, colex_embeddings
             )
 
             col_result = ColexResult(
@@ -101,7 +103,7 @@ class StudyPipelineService:
         yield {"progress": 50, "step": "Aggregating family profiles from CLICS …"}
         await asyncio.sleep(0)
 
-        family_profiles = self._colex.compute_family_profiles_full(
+        family_profiles, pair_forms = self._colex.compute_family_profiles_full(
             anchors, request.families
         )
 
@@ -112,13 +114,14 @@ class StudyPipelineService:
         await asyncio.sleep(0)
 
         language_partitions = self._colex.compute_language_partitions_from_profiles(
-            anchors, request.families, family_profiles
+            anchors, request.families, family_profiles, pair_forms
         )
 
-        colex_embeddings = self._registry.get_embeddings(
-            [anchor.concepticon_id for anchor in anchors]
-        )
-        translations: Optional[dict[str, list[str]]] = None
+        all_languages: set[str] = set()
+        for profile in family_profiles.values():
+            for rate in profile["pair_rates"].values():
+                all_languages.update(rate["attesting_languages"])
+        language_names = self._colex.metadata.names(sorted(all_languages))
 
         # -----------------------------------------------------------------
         # Assemble final result
@@ -134,8 +137,8 @@ class StudyPipelineService:
             language_partitions=language_partitions,
             family_profiles=family_profiles,
             colexification_embeddings=colex_embeddings,
-            translations=translations,
             dataset_versions=dataset_versions,
+            language_names=language_names,
         )
 
         yield {"progress": 100, "step": "Done", "result": result}

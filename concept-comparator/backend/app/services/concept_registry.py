@@ -35,7 +35,7 @@ class ConceptRegistryService:
         db_path = _find_db()
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
-        print(f"ConceptRegistryService: connected to {db_path}")
+        pass
 
     # ------------------------------------------------------------------
     # Search

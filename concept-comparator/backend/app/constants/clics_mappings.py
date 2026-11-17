@@ -28,7 +28,7 @@ CLICS_LANGUAGE_MAPPINGS = {
     'jpn': ['wold-21', 'northeuralex-jpn'],
     'kor': ['wold-189', 'northeuralex-kor'],
     'vie': ['wold-24', 'northeuralex-vie'],
-    'khm': ['wold-110', 'ids-222', 'northeuralex-khm'],
+    'khm': ['wold-110', 'northeuralex-khm'],
     'tha': ['wold-23', 'northeuralex-tha'],
     'lao': ['wold-193', 'northeuralex-lao'],
     'mal': ['wold-203', 'northeuralex-mal'],

@@ -1,134 +1,46 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import {
-  ComparisonData,
-  ComparisonResult,
-  ProgressCallback,
-  ComparisonProgress,
   ConceptAnchor,
   FamilyInfo,
+  SemanticChainResponse,
+  SemanticMapResponse,
+  StudyProgress,
   StudyRequest,
   StudyResult,
-  StudyProgress,
-  SemanticMapResponse,
 } from '@/types';
 
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://cross-linguistic-analysis-production.up.railway.app'
-  : 'http://localhost:8000';
+// Override with VITE_API_URL (e.g. in frontend/.env.local) when the backend
+// runs somewhere other than localhost:8000.
+export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 export const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError) => {
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Response error:', error.response.data);
-    } else if (error.request) {
-      // The request was made but no response was received
-      console.error('Request error:', error.request);
-    } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Error:', error.message);
-    }
-    return Promise.reject(error);
+/** Pull a readable message out of an axios/FastAPI error. */
+export const errorMessage = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (!error.response) return `Cannot reach the backend at ${API_URL}. Is it running?`;
+    return error.message;
   }
-);
-
-export const compareWordsWithProgress = async (
-  data: ComparisonData, 
-  onProgress: ProgressCallback
-): Promise<Record<string, ComparisonResult>> => {
-  const response = await fetch(`${API_URL}/compare-concepts-progress`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-
-  const reader = response.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    
-    buffer = lines.pop() || '';
-    
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          const data = JSON.parse(line.slice(6)) as ComparisonProgress;
-          
-          if ('error' in data && typeof data.error === 'string') {
-            throw new Error(data.error);
-          }
-
-          if (data.progress) {
-            onProgress(data.progress, data.current_language);
-          }
-
-          if (data.results) {
-            return data.results;
-          }
-        } catch (e) {
-          console.error('Error parsing SSE data:', e);
-        }
-      }
-    }
-  }
-
-  throw new Error('Stream ended without results');
+  return error instanceof Error ? error.message : String(error);
 };
 
-// Type-safe API functions
 export const apiClient = {
-  getWordSenses: (word: string) => 
-    api.get(`/word-senses/${encodeURIComponent(word)}`).then(res => res.data),
-    
-  getSupportedLanguages: () => 
-    api.get('/supported-languages').then(res => res.data),
-    
-  compareWords: (data: {
-    concept1: string;
-    sense_id1: string;
-    concept2: string;
-    sense_id2: string;
-    languages: string[];
-  }) => api.post('/compare-concepts', data).then(res => res.data),
-
-  searchClicsConcepts: (query: string) => 
-    api.get(`/search-clics-concepts/${encodeURIComponent(query)}`).then(res => res.data),
-    
-  getClicsConcepts: () => 
-    api.get('/clics-concepts').then(res => res.data),
-
-  compareWordsWithProgress,
-
-  // Atlas API — Concepticon-anchored multi-concept endpoints
   searchConcepts: (q: string, limit = 12): Promise<ConceptAnchor[]> =>
     api.get('/concepts', { params: { q, limit } }).then(res => res.data),
 
-  getConceptNeighbors: (concepticonId: string) =>
-    api.get(`/concepts/${encodeURIComponent(concepticonId)}/neighbors`).then(res => res.data),
+  getConceptsById: (ids: string[]): Promise<ConceptAnchor[]> =>
+    api.get('/concepts/by-id', { params: { ids: ids.join(',') } }).then(res => res.data),
 
-  getSemanticMap: (conceptIdsOrLabels: string[], maxNeighbors = 15, family?: string): Promise<SemanticMapResponse> =>
+  getSemanticMap: (
+    conceptIdsOrLabels: string[],
+    maxNeighbors = 15,
+    family?: string,
+  ): Promise<SemanticMapResponse> =>
     api
       .get('/semantic-map', {
         params: {
@@ -139,29 +51,55 @@ export const apiClient = {
       })
       .then(res => res.data),
 
-  getDatasetVersions: (): Promise<Record<string, string>> =>
-    api.get('/dataset-versions').then(res => res.data),
+  getChains: (
+    conceptA: string,
+    conceptB: string,
+    options: { family?: string; maxDepth?: number; limit?: number } = {},
+  ): Promise<SemanticChainResponse> =>
+    api
+      .get('/chains', {
+        params: {
+          a: conceptA,
+          b: conceptB,
+          max_depth: options.maxDepth ?? 3,
+          limit: options.limit ?? 12,
+          ...(options.family ? { family: options.family } : {}),
+        },
+      })
+      .then(res => res.data),
 
   getFamilies: (): Promise<FamilyInfo[]> =>
     api.get('/families').then(res => res.data),
 };
 
 /**
- * Run a multi-concept Atlas study with SSE streaming.
+ * Run a multi-concept study with SSE streaming.
  * Calls onProgress with each progress update; resolves with the final StudyResult.
  */
 export const runStudyWithProgress = async (
   request: StudyRequest,
   onProgress: (progress: number, step: string) => void,
 ): Promise<StudyResult> => {
-  const response = await fetch(`${API_URL}/study-progress`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/study-progress`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+  } catch {
+    throw new Error(`Cannot reach the backend at ${API_URL}. Is it running?`);
+  }
 
   if (!response.ok) {
-    throw new Error(`Study request failed: ${response.statusText}`);
+    let detail = response.statusText;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === 'string') detail = body.detail;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new Error(`Study request failed: ${detail}`);
   }
 
   const reader = response.body!.getReader();
@@ -178,53 +116,20 @@ export const runStudyWithProgress = async (
 
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue;
+
+      let update: StudyProgress;
       try {
-        const update = JSON.parse(line.slice(6)) as StudyProgress;
-
-        if (update.error) throw new Error(update.error);
-
-        onProgress(update.progress ?? 0, update.step ?? '');
-
-        if (update.result) return update.result;
+        update = JSON.parse(line.slice(6)) as StudyProgress;
       } catch (e) {
-        if (e instanceof Error && e.message.startsWith('Study')) throw e;
         console.error('SSE parse error:', e);
+        continue;
       }
+
+      if (update.error) throw new Error(update.error);
+      onProgress(update.progress ?? 0, update.step ?? '');
+      if (update.result) return update.result;
     }
   }
 
   throw new Error('Study stream ended without a result');
 };
-
-export const getSemanticChains = async (
-  concept1: string,
-  concept2: string,
-  family: string,
-  maxDepth: number = 4
-): Promise<{
-  chains: Array<{
-    path: string[];
-    scores: number[];
-    total_score: number;
-  }>;
-  family: string;
-  concepts: [string, string];
-}> => {
-  const response = await api.get(
-    `/semantic-chains/${encodeURIComponent(concept1)}/${encodeURIComponent(concept2)}`,
-    {
-      params: {
-        family,
-        max_depth: maxDepth
-      }
-    }
-  );
-  return response.data;
-};
-
-// Optional: Add error types for better error handling
-export interface ApiError {
-  status: number;
-  message: string;
-  details?: unknown;
-}

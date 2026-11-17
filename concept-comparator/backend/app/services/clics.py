@@ -1,3 +1,4 @@
+import logging
 import networkx as nx
 from pathlib import Path
 from typing import Dict, List, Set, Optional, Any
@@ -6,10 +7,12 @@ import numpy as np
 from app.models.schemas import LanguageColexification
 from app.constants.clics_mappings import get_clics_codes
 
+logger = logging.getLogger(__name__)
+
+
 class ClicsService:
     def __init__(self):
         """Initialize by loading the pre-computed network and building family-language mappings."""
-        print("Starting CLICS service initialization...")
         configured_path = (os.getenv("CLICS_NETWORK_PATH") or "").strip()
         network_path, checked_paths = self._resolve_network_path(configured_path)
         if not network_path:
@@ -20,42 +23,33 @@ class ClicsService:
                 "Checked paths:\n"
                 f"{checked_paths_msg}"
             )
-            
-        print(f"Loading network from {network_path}...")
-        
-        try:
-            with open(network_path, 'r', encoding='utf-8') as f:
-                gml_data = f.read()
-                
-            # Clean the data to ensure ASCII compatibility
-            gml_data = gml_data.encode('ascii', 'ignore').decode('ascii')
-            
-            # Create temporary file with cleaned data
-            temp_path = Path(f"{network_path}.temp")
-            with open(temp_path, 'w') as f:
-                f.write(gml_data)
-                
-            # Load the network from cleaned file
-            self.graph = nx.read_gml(temp_path)
-            
-            # Clean up temp file
-            temp_path.unlink()
-            
-            node_count = len(self.graph.nodes)
-            edge_count = len(self.graph.edges)
-            print(f"Loaded CLICS network with {node_count} nodes and {edge_count} edges")
-            
-            # Build family-language mapping
-            print("Building family-language mapping...")
-            self.family_language_map = self._build_family_language_map()
-            print(f"Found {len(self.family_language_map)} language families")
-            for family, langs in self.family_language_map.items():
-                print(f"{family}: {len(langs)} languages")
-            print("CLICS service initialization complete")
-            
-        except Exception as e:
-            print(f"Error loading CLICS network: {str(e)}")
-            raise
+
+        logger.info("Loading CLICS network from %s", network_path)
+
+        with open(network_path, "r", encoding="utf-8") as f:
+            gml_data = f.read()
+
+        # networkx's GML parser only accepts 7-bit ASCII. Escape non-ASCII
+        # characters as XML character references (which the parser decodes)
+        # instead of dropping them, so IPA word forms survive intact.
+        gml_data = gml_data.encode("ascii", "xmlcharrefreplace").decode("ascii")
+        self.graph = nx.parse_gml(gml_data)
+
+        # Gloss -> node id index (avoids a linear scan on every lookup)
+        self._gloss_index: Dict[str, str] = {}
+        for node, data in self.graph.nodes(data=True):
+            gloss = data.get("Gloss")
+            if gloss:
+                self._gloss_index.setdefault(gloss, node)
+                self._gloss_index.setdefault(gloss.upper(), node)
+
+        self.family_language_map = self._build_family_language_map()
+        logger.info(
+            "Loaded CLICS network: %d concepts, %d colexification edges, %d families",
+            self.graph.number_of_nodes(),
+            self.graph.number_of_edges(),
+            len(self.family_language_map),
+        )
 
     def _resolve_network_path(self, configured_path: str) -> tuple[Optional[Path], List[Path]]:
         """Resolve CLICS network path across common project layouts."""
@@ -120,13 +114,10 @@ class ClicsService:
         return family_language_map
         
     def _get_node_by_gloss(self, concept: str) -> Optional[str]:
-        """Find node ID for a concept by its Gloss"""
-        # Try both original case and uppercase
-        for node, data in self.graph.nodes(data=True):
-            if (data.get('Gloss') == concept or 
-                data.get('Gloss') == concept.upper()):
-                return node
-        return None
+        """Find node ID for a concept by its Gloss (case-insensitive fallback)."""
+        if not concept:
+            return None
+        return self._gloss_index.get(concept) or self._gloss_index.get(concept.upper())
 
     def get_language_colexifications(
         self,
@@ -290,75 +281,93 @@ class ClicsService:
         
         return family_results
     
-    def find_chains(self, concept1: str, concept2: str, family: str, max_depth: int = 4) -> List[Dict]:
-        """Find semantic chains between two concepts within a language family."""
-        print("\n=== Starting Chain Search ===")
-        print(f"Looking for chains between '{concept1}' and '{concept2}' in {family} family")
-        print(f"Graph is directed: {self.graph.is_directed()}")
+    def find_chains(
+        self,
+        concept1: str,
+        concept2: str,
+        family: Optional[str] = None,
+        max_depth: int = 4,
+        limit: int = 12,
+    ) -> List[Dict]:
+        """
+        Find indirect semantic chains between two concepts, e.g.
+        WEATHER -> SKY -> GOD: every link is a colexification attested in
+        the sample, but the end points need not be colexified directly.
+
+        If ``family`` is given only links attested in that family count and
+        link strength is the share of the family's languages attesting it;
+        otherwise all CLICS languages are used.
+
+        Chains are returned strongest first (highest geometric mean of link
+        shares, which naturally favours shorter chains). The direct edge, if
+        any, is excluded; direct colexification is reported elsewhere.
+        """
         node1 = self._get_node_by_gloss(concept1)
         node2 = self._get_node_by_gloss(concept2)
-        
-        if not node1 or not node2:
-            print(f"Could not find nodes for {concept1} and/or {concept2}")
+        if not node1 or not node2 or node1 == node2:
             return []
-            
-        print(f"Finding paths between {concept1} ({node1}) and {concept2} ({node2})")
-        
-        try:
-            print("\nSearching for paths...")
-            # Find all simple paths up to max_depth
-            paths = list(nx.all_simple_paths(
-                self.graph, 
-                node1, 
-                node2, 
-                cutoff=max_depth
-            ))
-            print(f"Found {len(paths)} directed paths")
-            
-            chains = []
-            for path in paths:
-                scores = []
-                valid_chain = True
-                
-                for i in range(len(path)-1):
-                    edge_data = self.graph.get_edge_data(path[i], path[i+1])
-                    if not edge_data or 'wofam' not in edge_data:
-                        # No data or missing family info means we can’t validate
-                        valid_chain = False
-                        break
-                    
-                    edge_languages = self._get_family_languages(edge_data, family)
-                    
-                    if not edge_languages:
-                        # If this edge isn't attested in any language of the family, this chain fails
-                        valid_chain = False
-                        break
-                    
-                    # Calculate frequency score 
-                    family_langs = self.family_language_map.get(family, set())
-                    freq = len(edge_languages) / len(family_langs) if family_langs else 0
-                    scores.append(freq)
-                
-                if valid_chain and scores:
-                    # Construct the chain data 
-                    chain_glosses = [self.graph.nodes[n]["Gloss"] for n in path]
-                    print(f"\nValid chain found: {' -> '.join(chain_glosses)}")
-                    print(f"Scores: {[f'{s:.2f}' for s in scores]}")
 
-                    chains.append({
-                        "path": chain_glosses,
-                        "scores": scores,
-                        "total_score": np.exp(np.mean(np.log(scores))) if all(s > 0 for s in scores) else 0,
-                    })
+        if family:
+            denominator = len(self.family_language_map.get(family, set()))
+        else:
+            denominator = len(set().union(*self.family_language_map.values())) if self.family_language_map else 0
+        if denominator == 0:
+            return []
 
+        link_cache: Dict[tuple, int] = {}
+
+        def link_count(u: str, v: str) -> int:
+            key = (u, v) if u <= v else (v, u)
+            if key not in link_cache:
+                data = self.graph.get_edge_data(u, v) or {}
+                if family:
+                    link_cache[key] = len(self._get_family_languages(data, family))
                 else:
-                    print("Chain invalid or no scores")
+                    link_cache[key] = int(data.get("LanguageWeight", 0) or 0)
+            return link_cache[key]
 
-            return chains
-            
-        except Exception as e:
-            print(f"Error finding chains: {str(e)}")
-            return []
+        # Neighbours reachable through links attested in the sample
+        def neighbours(n: str) -> Set[str]:
+            return {m for m in self.graph.neighbors(n) if link_count(n, m) > 0}
+
+        n1, n2 = neighbours(node1), neighbours(node2)
+        n1.discard(node2)
+        n2.discard(node1)
+
+        # Enumerate simple paths with 2..max_depth links (direct edge excluded).
+        paths: List[List[str]] = [[node1, x, node2] for x in n1 & n2]
+        if max_depth >= 3:
+            for x in n1:
+                for y in neighbours(x) & n2:
+                    if y not in (node1, x):
+                        paths.append([node1, x, y, node2])
+        if max_depth >= 4:
+            n2_neigh = {y: neighbours(y) for y in n2}
+            for x in n1:
+                nx_ = neighbours(x)
+                for z in nx_:
+                    if z in (node1, node2):
+                        continue
+                    nz = neighbours(z)
+                    for y, ny in n2_neigh.items():
+                        if y in (node1, x, z) or y not in nz:
+                            continue
+                        paths.append([node1, x, z, y, node2])
+
+        chains: List[Dict] = []
+        for path in paths:
+            counts = [link_count(path[i], path[i + 1]) for i in range(len(path) - 1)]
+            shares = [c / denominator for c in counts]
+            chains.append({
+                "path": [self.graph.nodes[n].get("Gloss", n) for n in path],
+                "scores": shares,
+                "counts": counts,
+                "total_score": float(np.exp(np.mean(np.log(shares)))),
+            })
+
+        chains.sort(key=lambda c: (-c["total_score"], len(c["path"])))
+        chains = chains[:limit]
+        return chains
 
     def _get_family_languages(self, edge_data: Dict, family: str) -> Set[str]:
         """Extract languages from a specific family that show this connection."""

@@ -1,39 +1,79 @@
-import React, { useState } from 'react';
-import { BookOpen, Loader2 } from 'lucide-react';
-import { apiClient } from '../api/client';
 import { ConceptAnchor } from '../types';
 
 interface StarterStudy {
   name: string;
   description: string;
-  labels: string[];  // Concepticon labels to resolve
+  concepts: ConceptAnchor[];
 }
 
+const c = (concepticon_id: string, label: string, semantic_field: string): ConceptAnchor => ({
+  concepticon_id,
+  label,
+  clics_gloss: label,
+  semantic_field,
+});
+
+// Concepts are pinned to exact Concepticon IDs so each example resolves to the
+// CLICS-linked sense (e.g. DAY (NOT NIGHT), not DAY (24 HOURS)).
 const STARTER_STUDIES: StarterStudy[] = [
   {
-    name: 'Thought & Knowledge',
-    description: 'How do languages split mental verbs?',
-    labels: ['KNOW', 'THINK', 'UNDERSTAND', 'BELIEVE'],
+    name: 'Hand & arm',
+    description: 'One word for HAND and ARM is common worldwide.',
+    concepts: [
+      c('1277', 'HAND', 'The Body'),
+      c('1673', 'ARM', 'The Body'),
+      c('1303', 'FINGER', 'The Body'),
+      c('799', 'WRIST', 'The Body'),
+    ],
   },
   {
-    name: 'Wind, Breath & Soul',
-    description: 'A classic polysemy cluster across world cultures.',
-    labels: ['WIND', 'BREATH', 'SOUL', 'SPIRIT'],
+    name: 'Tree, wood & fire',
+    description: 'From living tree to firewood to fire.',
+    concepts: [
+      c('906', 'TREE', 'Agriculture And Vegetation'),
+      c('1803', 'WOOD', 'The Physical World'),
+      c('10', 'FIREWOOD', 'The Physical World'),
+      c('221', 'FIRE', 'The Physical World'),
+    ],
   },
   {
-    name: 'Hand & Arm',
-    description: 'Split or merged? Varies dramatically by family.',
-    labels: ['HAND', 'ARM', 'FINGER', 'WRIST'],
+    name: 'Sun, day, moon & month',
+    description: 'Celestial bodies and the time spans they measure.',
+    concepts: [
+      c('1343', 'SUN', 'The Physical World'),
+      c('1225', 'DAY (NOT NIGHT)', 'Time'),
+      c('1313', 'MOON', 'The Physical World'),
+      c('1370', 'MONTH', 'Time'),
+    ],
   },
   {
-    name: 'Sun, Day & Light',
-    description: 'Temporal and luminous concepts often colexify.',
-    labels: ['SUN', 'DAY', 'LIGHT', 'SKY'],
+    name: 'Wind, air & soul',
+    description: 'WIND and SOUL only connect through a chain.',
+    concepts: [
+      c('960', 'WIND', 'The Physical World'),
+      c('27', 'AIR', 'The Physical World'),
+      c('3183', 'BREATH OR BREATHE', 'The Body'),
+      c('811', 'SOUL', 'Religion And Belief'),
+    ],
   },
   {
-    name: 'Fear & Pain',
-    description: 'Negative affect concepts and their colexification patterns.',
-    labels: ['FEAR', 'PAIN', 'HURT', 'DANGER'],
+    name: 'Knowing & perceiving',
+    description: 'KNOW often shares a word with HEAR or SEE.',
+    concepts: [
+      c('1410', 'KNOW (SOMETHING)', 'Cognition'),
+      c('1536', 'UNDERSTAND', 'Cognition'),
+      c('1408', 'HEAR', 'Sense Perception'),
+      c('1409', 'SEE', 'Sense Perception'),
+    ],
+  },
+  {
+    name: 'Skin, bark & leather',
+    description: 'Outer coverings of bodies, trees and hides.',
+    concepts: [
+      c('763', 'SKIN', 'The Body'),
+      c('1204', 'BARK', 'Agriculture And Vegetation'),
+      c('629', 'LEATHER', 'Clothing And Grooming'),
+    ],
   },
 ];
 
@@ -41,71 +81,35 @@ interface Props {
   onSelect: (anchors: ConceptAnchor[]) => void;
 }
 
-/**
- * Landing-page card grid of curated concept studies.
- * Resolves Concepticon labels to ConceptAnchor objects before calling onSelect.
- */
 export default function StarterStudyPicker({ onSelect }: Props) {
-  const [loadingStudy, setLoadingStudy] = useState<string | null>(null);
-
-  const handlePick = async (study: StarterStudy) => {
-    setLoadingStudy(study.name);
-    try {
-      const anchors: ConceptAnchor[] = [];
-      for (const label of study.labels) {
-        const results = await apiClient.searchConcepts(label, 1);
-        if (results.length > 0) {
-          anchors.push(results[0]);
-        }
-      }
-      if (anchors.length >= 2) {
-        onSelect(anchors);
-      }
-    } catch (e) {
-      console.error('Failed to resolve starter study:', e);
-    } finally {
-      setLoadingStudy(null);
-    }
-  };
-
   return (
     <section className="atlas-panel p-6">
-      <div className="mb-5 flex items-center gap-3">
-        <BookOpen className="h-5 w-5 text-slate-500" />
-        <div>
-          <p className="atlas-kicker">Curated studies</p>
-          <h2 className="text-xl text-slate-900">Start with a known colexification pattern</h2>
-        </div>
+      <div className="mb-4">
+        <h2 className="text-xl text-slate-900">Examples</h2>
+        <p className="mt-1 text-sm text-slate-600">Load a concept set, then run the study.</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {STARTER_STUDIES.map((study) => {
-          const isLoading = loadingStudy === study.name;
-          return (
-            <button
-              key={study.name}
-              onClick={() => handlePick(study)}
-              disabled={!!loadingStudy}
-              className="group flex flex-col rounded-[22px] border border-stone-200/80 bg-white/60 p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/70 hover:bg-white/80 hover:shadow-[0_12px_28px_rgba(46,80,99,0.1)] disabled:opacity-60"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-slate-800">{study.name}</p>
-                {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
-              </div>
-              <p className="mb-3 text-xs leading-5 text-slate-500">{study.description}</p>
-              <div className="mt-auto flex flex-wrap gap-1">
-                {study.labels.map((label) => (
-                  <span
-                    key={label}
-                    className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-slate-600"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </button>
-          );
-        })}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {STARTER_STUDIES.map(study => (
+          <button
+            key={study.name}
+            onClick={() => onSelect(study.concepts)}
+            className="group flex flex-col rounded-[20px] border border-stone-200/80 bg-white/60 p-4 text-left transition hover:border-sky-300/70 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+          >
+            <p className="text-sm font-semibold text-slate-800">{study.name}</p>
+            <p className="mb-3 mt-1 text-xs leading-5 text-slate-500">{study.description}</p>
+            <div className="mt-auto flex flex-wrap gap-1">
+              {study.concepts.map(concept => (
+                <span
+                  key={concept.concepticon_id}
+                  className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
+                >
+                  {concept.label}
+                </span>
+              ))}
+            </div>
+          </button>
+        ))}
       </div>
     </section>
   );

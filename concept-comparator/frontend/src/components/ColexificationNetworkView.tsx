@@ -86,7 +86,7 @@ function getFamiliesWithData(family_profiles: StudyResult['family_profiles']): s
 }
 
 export function ColexificationNetworkView({ studyResult }: Props) {
-  const conceptLabels = studyResult.concepts.map(c => c.label);
+  const conceptIds = studyResult.concepts.map(c => c.concepticon_id);
   const [selectedFamily, setSelectedFamily] = useState('');
   const [simNodes, setSimNodes] = useState<SimNode[]>([]);
   const [simEdges, setSimEdges] = useState<SimEdge[]>([]);
@@ -99,8 +99,8 @@ export function ColexificationNetworkView({ studyResult }: Props) {
 
   // Refetch when selectedFamily changes — backend filters wofam to that family
   const { data: mapData, isLoading } = useQuery({
-    queryKey: ['semantic-map', conceptLabels.join(','), selectedFamily],
-    queryFn: () => apiClient.getSemanticMap(conceptLabels, 20, selectedFamily || undefined),
+    queryKey: ['semantic-map', conceptIds.join(','), selectedFamily],
+    queryFn: () => apiClient.getSemanticMap(conceptIds, 20, selectedFamily || undefined),
     staleTime: Infinity,
   });
 
@@ -178,7 +178,7 @@ export function ColexificationNetworkView({ studyResult }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-sm text-slate-500 flex-1">
+        <p className="flex-1 text-sm text-slate-500">
           Drag nodes to rearrange. Hover edges for language count.
           {selectedFamily && (
             <span className="ml-1 font-medium text-sky-700">
@@ -209,8 +209,10 @@ export function ColexificationNetworkView({ studyResult }: Props) {
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
-          className="w-full"
-          style={{ height: H }}
+          className="h-auto w-full"
+          role="img"
+          aria-label="Colexification network of the selected concepts"
+          style={{ maxHeight: H }}
           onMouseLeave={() => setEdgeTooltip(null)}
         >
           {/* Edges */}

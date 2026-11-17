@@ -1,183 +1,110 @@
 # Cross-Linguistic Concept Comparator
 
-A tool for analyzing how different languages encode semantic relationships between concepts, combining computational and genealogical/areal approaches.
+Compare how the world's languages group concepts into words.
+
+Pick 2–6 concepts (HAND, ARM, FINGER…) and the app shows which languages use **one word for several of them** (*colexification*), how that varies across language families, the actual word forms, and the **indirect semantic chains** that link concepts never colexified directly. It uses the [CLICS³](https://clics.clld.org/) network: 2,681 languages in 180 families.
+
+![Overview of a HAND · ARM · FINGER · WRIST study](docs/screenshots/overview.png)
 
 ## Features
 
-- Word sense disambiguation through WordNet and CLICS
-- Cross-linguistic semantic similarity analysis using LaBSE embeddings
-- Colexification pattern analysis across language families
-- Interactive visualizations of semantic relationships
-- Support for 90 languages across multiple families
-- Family and areal pattern analysis
-- Semantic chain discovery - reveals indirect semantic connections through colexification links in a family (e.g., WEATHER→SKY→GOD)
-- Correlation analysis between computational and genealogical measures
+| | |
+|---|---|
+| **Overview** | Matrix of how many languages colexify each pair, plus a *neighbourhood similarity* score per pair (cosine of Node2Vec embeddings of the CLICS graph) that captures relatedness even without a shared word. |
+| **Families** | Attesting languages per family for a pair, as counts and as a share of the family. |
+| **Semantic chains** | Indirect paths such as WIND → AIR → BREATH → SOUL, where each step is an attested colexification, ranked by strength, for all of CLICS or a single family. |
+| **Network** | Interactive force layout of the concepts in their CLICS neighbourhood, filterable by family. |
+| **Languages** | Every attesting language with the concepts it merges and the **attested word form** (e.g. Czech *noɦa* = LEG + FOOT), searchable by language or form. |
+| **Study links & history** | Every study is a shareable URL (`?concepts=1277,1673&tab=chains`), and past studies are kept locally. |
 
-## Prerequisites
+Concepts are pinned to [Concepticon](https://concepticon.clld.org/) IDs, so "DAY" means *DAY (NOT NIGHT)* and not *DAY (24 HOURS)*.
 
-- Python 3.9-3.11.x (3.11 recommended)
-- Node.js 16+
-- NLTK with WordNet
-- One translation backend:
-  - Local: Ollama + TranslateGemma (recommended)
-  - Cloud: OpenAI API key
+## Screenshots
 
-## Setup Instructions
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/chains.png" alt="Semantic chains between WIND and SOUL"><br><sub><b>Semantic chains:</b> WIND and SOUL never share a word, but are linked through AIR and BREATH.</sub></td>
+    <td width="50%"><img src="docs/screenshots/families.png" alt="HAND = ARM by language family"><br><sub><b>Families:</b> HAND = ARM in 294 languages across 48 families.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/network.png" alt="Colexification network for TREE, WOOD, FIREWOOD, FIRE"><br><sub><b>Network:</b> TREE · WOOD · FIREWOOD · FIRE in the CLICS graph.</sub></td>
+    <td width="50%"><img src="docs/screenshots/languages.png" alt="Per-language word forms for LEG, FOOT, THIGH"><br><sub><b>Languages:</b> the attested forms behind each colexification.</sub></td>
+  </tr>
+</table>
 
-### 1. Clone the Repository
+## How it works
 
-```bash
-git clone https://github.com/TimeTravelerTy/cross-linguistic-analysis.git
-cd cross-linguistic-analysis/concept-comparator
+```
+frontend (React + Vite + Tailwind + Recharts)
+   │  REST + server-sent events for study progress
+   ▼
+backend (FastAPI)
+   ├─ ClicsService            loads the CLICS³ network (networkx), chain search
+   ├─ ColexificationService   per-pair evidence, family profiles, word forms
+   ├─ ConceptRegistryService  Concepticon registry + Node2Vec embeddings (atlas.sqlite)
+   ├─ LanguageMetadataService readable language names for CLICS ids
+   └─ StudyPipelineService    orchestrates a study and streams progress
 ```
 
-### 2. Download CLICS Data
+**Semantic chains** enumerate all paths of 2–4 links between two concepts that avoid the direct edge, using only links attested in the chosen sample. A link's strength is the share of sampled languages that colexify it, and a chain's score is the geometric mean of its links, so one weak link pulls a chain down.
 
-Download the required CLICS data files from the release of this repository:
-- `clics.sqlite`
-- `network-3-families.gml`
+## Getting started
 
-Place these files in the `data/clics` subdirectory of your `concept-comparator` directory.
+Requirements: Python 3.10–3.11, Node 18+.
 
-### 3. Backend Setup
+### 1. Data
 
-Create and activate a Python virtual environment:
+Put the CLICS files from this repository's [releases](https://github.com/TimeTravelerTy/cross-linguistic-analysis/releases) in `concept-comparator/backend/data/clics/`:
 
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+- `network-3-families.gml` (required)
+- `clics.sqlite` (optional; provides language names. Without it some languages appear as e.g. *IDS #218*)
 
-Install Python dependencies:
+Then build the concept registry and embeddings (`atlas.sqlite`) once:
 
 ```bash
-pip install -r backend/requirements.txt
+cd concept-comparator/backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python scripts/run_ingestion.py --skip-omw
 ```
 
-Set up environment variables:
-```bash
-# Create .env file in concept-comparator/
-touch .env
-
-# Required
-CLICS_NETWORK_PATH=data/clics/network-3-families.gml
-
-# Option A (local, recommended): Ollama + TranslateGemma
-OPENAI_BASE_URL=http://localhost:11434/v1
-TRANSLATION_API_KEY=ollama
-TRANSLATION_MODEL=translategemma:4b
-
-# Option B (cloud): OpenAI
-# OPENAI_API_KEY=your_openai_api_key
-# TRANSLATION_MODEL=gpt-4o-mini
-```
-
-Download required NLTK data:
-```python
-python3 -c "import nltk; nltk.download('wordnet')"
-```
-
-### 4. Frontend Setup
-
-Install Node.js dependencies:
+### 2. Backend
 
 ```bash
-cd frontend
+cd concept-comparator/backend
+source .venv/bin/activate
+python run.py
+```
+
+The API runs on `http://localhost:8000` (interactive docs at `/docs`). Set `PORT` to change it. See `backend/.env.example` for optional settings.
+
+### 3. Frontend
+
+```bash
+cd concept-comparator/frontend
 npm install
-```
-
-### 5. Running the Application
-
-1. Start the backend server:
-```bash
-# From the root directory
-python3 backend/run.py
-```
-
-2. Start the frontend development server:
-```bash
-# From the frontend directory
 npm run dev
 ```
 
-The application should now be running at `http://localhost:5173`
+Open `http://localhost:5173`. If the backend is not on port 8000, create `frontend/.env.local` with `VITE_API_URL=http://localhost:<port>`.
 
-## Local TranslateGemma Setup (M-series Mac)
+## API
 
-1. Install Ollama:
-```bash
-brew install --cask ollama
-```
+| Endpoint | Description |
+|---|---|
+| `GET /concepts?q=hand` | Search Concepticon (CLICS-linked and frequent concepts first) |
+| `GET /concepts/by-id?ids=1277,1673` | Resolve Concepticon IDs |
+| `POST /study-progress` | Run a study; streams progress and the result as SSE |
+| `GET /chains?a=960&b=811&family=&max_depth=3` | Indirect semantic chains between two concepts |
+| `GET /semantic-map?concepts=1277,1673` | CLICS neighbourhood graph |
+| `GET /families` | Language families with language counts |
 
-2. Start Ollama (if it is not already running):
-```bash
-ollama serve
-```
+## Data and credits
 
-3. Pull the model:
-```bash
-ollama pull translategemma:4b
-```
-
-4. Verify:
-```bash
-ollama run translategemma:4b
-```
-
-Then keep your `.env` set to:
-```bash
-OPENAI_BASE_URL=http://localhost:11434/v1
-TRANSLATION_API_KEY=ollama
-TRANSLATION_MODEL=translategemma:4b
-```
-
-## Key Components
-
-### Backend Services
-
-- `DisambiguationService`: Handles word sense disambiguation using WordNet/CLICS
-- `TranslationService`: Manages translations using a configurable OpenAI-compatible model (e.g. TranslateGemma via Ollama)
-- `EmbeddingService`: Computes embedding similarities using LaBSE
-- `ClicsService`: Analyzes colexification patterns
-
-### Frontend Components
-
-- Word sense selection
-- Language family/subfamily selection
-- Semantic space visualization
-- Family-level colexification graphs  
-- Family pattern analysis
-- Statistical correlation analysis
-
-## Usage
-
-1. Enter two concepts to compare
-2. Select word senses (WordNet) or concepts (CLICS)
-3. Choose target languages for comparison
-4. View results including:
-   - Semantic similarities
-   - Colexification patterns
-   - Family-level analysis
-   - Areal patterns
-   - Statistical correlations between embedding and colexification similarities
-
-## Common Issues and Solutions
-
-1. **CLICS Data Loading Error**
-   - Ensure the GML file path in `.env` is correct
-
-2. **Translation Service Error**
-   - For local setup, ensure `ollama serve` is running and `TRANSLATION_MODEL` exists locally
-   - For cloud setup, verify `OPENAI_API_KEY` is set correctly and check API rate limits
-
-3. **Embedding Service Issues**
-   - First run may take longer as it downloads the LaBSE model
-   - Ensure enough RAM (at least 8GB recommended)
-
-## Contributing
-
-Contributions are welcome! Please read through the existing issues before submitting new ones.
+- **CLICS³**: Rzymski, Tresoldi et al. (2020). *The Database of Cross-Linguistic Colexifications, reproducible analysis of cross-linguistic polysemies.* Scientific Data 7, 13.
+- **Concepticon 3.4**: List et al. *Concepticon: A resource for the linking of concept lists.*
+- Language families follow Glottolog.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT, see [LICENSE](LICENSE).

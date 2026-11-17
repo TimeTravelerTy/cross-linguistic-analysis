@@ -1,11 +1,11 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 
 interface ProgressButtonProps {
   onClick: () => void;
   disabled?: boolean;
   isLoading?: boolean;
   progress?: number;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 const ProgressButton = ({ onClick, disabled, isLoading, progress, children }: ProgressButtonProps) => (
@@ -13,7 +13,7 @@ const ProgressButton = ({ onClick, disabled, isLoading, progress, children }: Pr
     onClick={onClick}
     disabled={disabled || isLoading}
     className={[
-      'relative overflow-hidden rounded-full px-6 py-3.5 text-sm font-semibold uppercase tracking-[0.18em] transition-all',
+      'relative shrink-0 overflow-hidden rounded-full px-6 py-3 text-sm font-semibold transition-all',
       disabled || isLoading
         ? 'cursor-not-allowed bg-stone-300 text-stone-600'
         : 'bg-stone-50 text-sky-950 shadow-[0_12px_30px_rgba(12,25,34,0.28)] hover:-translate-y-0.5 hover:bg-white',

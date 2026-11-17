@@ -1,4 +1,3 @@
-import React from 'react';
 import { X } from 'lucide-react';
 import { ConceptAnchor, ConceptSlot } from '../types';
 import ConceptSearch from './ConceptSearch';
@@ -11,10 +10,7 @@ interface ConceptSlotPanelProps {
   onRemoveSlot: (index: number) => void;
 }
 
-/**
- * Dynamic grid of concept input slots (2–6).
- * Each slot searches Concepticon via GET /concepts and pins a ConceptAnchor.
- */
+/** Grid of 2–6 concept slots; each slot pins a Concepticon concept. */
 export default function ConceptSlotPanel({
   slots,
   onUpdateSlot,
@@ -70,7 +66,7 @@ function ConceptSlotCard({
   };
 
   return (
-    <div className="relative rounded-[26px] border border-stone-200/80 bg-white/55 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+    <div className="relative rounded-[22px] border border-stone-200/80 bg-white/55 p-5">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -83,7 +79,7 @@ function ConceptSlotCard({
               )}
             </div>
           ) : (
-            <h3 className="text-xl text-slate-400">Not selected</h3>
+            <h3 className="text-xl text-slate-400">—</h3>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -101,7 +97,7 @@ function ConceptSlotCard({
                   : 'Not in CLICS — colexification data unavailable'
               }
             >
-              {slot.anchor.clics_gloss ? 'CLICS ✓' : 'No CLICS'}
+              {slot.anchor.clics_gloss ? 'CLICS' : 'No CLICS data'}
             </span>
           )}
           {canRemove && (
@@ -109,6 +105,7 @@ function ConceptSlotCard({
               onClick={onRemove}
               className="rounded-full p-1 text-slate-400 transition hover:bg-stone-100 hover:text-slate-700"
               title="Remove this concept"
+              aria-label={`Remove concept ${label}`}
             >
               <X className="h-4 w-4" />
             </button>
@@ -124,14 +121,18 @@ function ConceptSlotCard({
         placeholder={`Search concept ${label}…`}
       />
 
-      {/* Concepticon ID badge */}
       {slot.anchor?.concepticon_id && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-          <span className="rounded bg-stone-100 px-1.5 py-0.5 font-mono">
+        <p className="mt-2 text-xs text-slate-500">
+          Concepticon{' '}
+          <a
+            href={`https://concepticon.clld.org/parameters/${slot.anchor.concepticon_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-slate-600 underline decoration-stone-300 underline-offset-2 hover:text-sky-800"
+          >
             #{slot.anchor.concepticon_id}
-          </span>
-          <span>Concepticon ID</span>
-        </div>
+          </a>
+        </p>
       )}
     </div>
   );
