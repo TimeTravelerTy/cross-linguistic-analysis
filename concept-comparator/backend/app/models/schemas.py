@@ -84,7 +84,8 @@ class ColexificationEvidence(BaseModel):
     chain_paths: List[List[str]] = []
     chain_min_length: Optional[int] = None
 
-    # Supplementary signal (LaBSE / BGE-M3) — clearly labelled as secondary
+    # Colexification-space similarity: cosine of the two concepts' Node2Vec
+    # embeddings in the CLICS graph (a secondary signal, not a score)
     embedding_similarity: Optional[float] = None
 
     # Data quality indicators (not a score)
